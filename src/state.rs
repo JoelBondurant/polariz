@@ -1,10 +1,15 @@
 use crate::hexbin::{self, HexbinPlotKernel};
-use crate::message::{Message, PlotType};
+use crate::line::{self, LinePlotKernel};
+use crate::message::Message;
 use crate::plot::{PlotKernel, PlotWidget};
+use crate::plot_core::PlotType;
 use crate::violin::{self, ViolinPlotKernel};
 use iced::widget::{canvas, column, container, pick_list, row, text, tooltip, Tooltip};
 use iced::{window, Element, Length, Size, Task};
 use std::sync::Arc;
+
+const WIDTH: u32 = 1200;
+const HEIGHT: u32 = 1200;
 
 struct AppState {
 	kernel: Box<dyn PlotKernel>,
@@ -20,22 +25,20 @@ pub fn run() -> Result {
 	iced::application(new, update, view)
 		.title("Polariz")
 		.window(window::Settings {
-			size: Size::new(1200.0, 1200.0),
+			size: Size::new(WIDTH as f32, HEIGHT as f32),
 			..Default::default()
 		})
 		.run()
 }
 
 fn new() -> (AppState, Task<Message>) {
-	let width = 1200;
-	let height = 1200;
 	let plot_type = PlotType::Violin;
-	let (kernel, task) = create_plot(plot_type, width, height);
+	let (kernel, task) = create_plot(plot_type, WIDTH, HEIGHT);
 	let state = AppState {
 		kernel,
 		hovered_info: None,
 		current_plot_type: plot_type,
-		current_size: (width, height),
+		current_size: (WIDTH, HEIGHT),
 	};
 	(state, task)
 }
@@ -66,6 +69,16 @@ fn create_plot(
 			let task = kernel.rasterize(width, height);
 			(Box::new(kernel), task)
 		}
+		PlotType::Line => {
+			let df = line::generate_sample_line_data();
+			let prepared = line::prepare_line_data(&df, "cat", "x", "y");
+			let kernel = LinePlotKernel {
+				prepared_data: Arc::new(prepared),
+				image_cache: None,
+			};
+			let task = kernel.rasterize(width, height);
+			(Box::new(kernel), task)
+		}
 	}
 }
 
@@ -82,7 +95,7 @@ fn update(state: &mut AppState, message: Message) -> Task<Message> {
 		Message::ChangePlotType(new_type) => {
 			if new_type != state.current_plot_type {
 				state.current_plot_type = new_type;
-				let (new_kernel, task) = create_plot(new_type, 1200, 1200);
+				let (new_kernel, task) = create_plot(new_type, WIDTH, HEIGHT);
 				state.kernel = new_kernel;
 				state.hovered_info = None;
 				return task;

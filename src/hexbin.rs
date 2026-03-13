@@ -148,7 +148,6 @@ pub fn prepare_hexbin_data(df: &DataFrame, radius: f32) -> HexbinPreparedData {
 	let y_col = df.column("y").unwrap().f32().unwrap();
 	let x_range = (x_col.min().unwrap_or(0.0), x_col.max().unwrap_or(1.0));
 	let y_range = (y_col.min().unwrap_or(0.0), y_col.max().unwrap_or(1.0));
-
 	let binned = bin_data_to_hex(df.clone(), radius).unwrap();
 	let q_col = binned.column("q").unwrap().i32().unwrap();
 	let r_col = binned.column("r").unwrap().i32().unwrap();

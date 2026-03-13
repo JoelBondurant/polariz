@@ -57,7 +57,6 @@ fn viridis(t: f32) -> vec3<f32> {
 	);
 }
 
-
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 	let radius = screen.radius;
