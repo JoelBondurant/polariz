@@ -4,6 +4,7 @@ mod line;
 mod message;
 mod plot;
 mod plot_core;
+mod scatter;
 mod state;
 mod violin;
 
