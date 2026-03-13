@@ -3,7 +3,7 @@ use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{self, Frame};
 use iced::widget::image;
-use iced::{Color, Point, Rectangle, Task};
+use iced::{Color, Rectangle, Task};
 use polars::prelude::*;
 use rand::RngExt;
 use rand_distr::{Distribution, Normal};
@@ -38,27 +38,37 @@ impl PlotKernel for ViolinPlotKernel {
 	) {
 		if let Some(cursor_pos) = cursor.position()
 			&& let PlotLayout::CategoricalX { categories, .. } = self.layout() {
-			for (i, cat) in categories.iter().enumerate() {
+			for (i, _) in categories.iter().enumerate() {
 				let (center_point, band_width) = transform.categorical(i, 0.0);
 				let left_edge = center_point.x - (band_width / 2.0);
 				let right_edge = center_point.x + (band_width / 2.0);
+
 				if cursor_pos.x >= left_edge && cursor_pos.x <= right_edge {
 					if let Some(&median_val) = self.prepared_data.medians.get(i) {
 						let (median_px, _) = transform.categorical(i, median_val);
 						let path = canvas::Path::circle(median_px, 4.0);
 						frame.fill(&path, Color::from_rgb(1.0, 0.2, 0.2));
-						frame.fill_text(canvas::Text {
-							content: format!("{}: Median {:.2}", cat, median_val),
-							position: Point::new(cursor_pos.x + 10.0, cursor_pos.y - 15.0),
-							color: Color::WHITE,
-							size: iced::Pixels(14.0),
-							..Default::default()
-						});
 					}
 					break;
 				}
 			}
 		}
+	}
+
+	fn hover(&self, transform: &CoordinateTransformer, cursor: Cursor) -> Option<String> {
+		if let Some(cursor_pos) = cursor.position()
+			&& let PlotLayout::CategoricalX { categories, .. } = self.layout() {
+			for (i, cat) in categories.iter().enumerate() {
+				let (center_point, band_width) = transform.categorical(i, 0.0);
+				let left_edge = center_point.x - (band_width / 2.0);
+				let right_edge = center_point.x + (band_width / 2.0);
+				if cursor_pos.x >= left_edge && cursor_pos.x <= right_edge
+					&& let Some(&median_val) = self.prepared_data.medians.get(i) {
+					return Some(format!("{}: Median {:.2}", cat, median_val));
+				}
+			}
+		}
+		None
 	}
 	
 	fn rasterize(&self, width: u32, height: u32) -> Task<Message> {

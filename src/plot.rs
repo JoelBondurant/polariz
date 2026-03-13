@@ -1,8 +1,8 @@
 use crate::message::Message;
 use iced::advanced::mouse::Cursor;
 use iced::alignment;
-use iced::widget::canvas::{Frame, Geometry, Path, Program, Stroke, Style, Text};
-use iced::{Color, Point, Rectangle, Renderer, Task, Theme};
+use iced::widget::canvas::{self, Frame, Geometry, Path, Program, Stroke, Style, Text};
+use iced::{Color, Event, Point, Rectangle, Renderer, Task, Theme};
 
 #[allow(dead_code)]
 #[derive(Clone)]
@@ -89,6 +89,8 @@ pub trait PlotKernel {
 		cursor: Cursor,
 	);
 
+	fn hover(&self, transform: &CoordinateTransformer, cursor: Cursor) -> Option<String>;
+
 	fn rasterize(&self, width: u32, height: u32) -> Task<Message>;
 
 	fn update_raster(&mut self, width: u32, height: u32, pixels: Vec<u8>);
@@ -99,7 +101,7 @@ pub struct PlotWidget<'a> {
 	pub padding: f32,
 }
 
-impl<'a> Program<()> for PlotWidget<'a> {
+impl<'a> Program<Message> for PlotWidget<'a> {
 	type State = ();
 
 	fn draw(
@@ -135,6 +137,28 @@ impl<'a> Program<()> for PlotWidget<'a> {
 		self.kernel
 			.draw_overlay(&mut frame, plot_area, &transform, cursor);
 		vec![frame.into_geometry()]
+	}
+
+	fn update(
+		&self,
+		_state: &mut Self::State,
+		event: &Event,
+		bounds: Rectangle,
+		cursor: Cursor,
+	) -> Option<canvas::Action<Message>> {
+		if let Event::Mouse(iced::mouse::Event::CursorMoved { .. }) = event {
+			let plot_area = Rectangle {
+				x: bounds.x + self.padding,
+				y: bounds.y + self.padding,
+				width: bounds.width - (self.padding * 2.0),
+				height: bounds.height - (self.padding * 2.0),
+			};
+			let layout = self.kernel.layout();
+			let transform = CoordinateTransformer::new(&layout, plot_area);
+			let hover = self.kernel.hover(&transform, cursor);
+			return Some(canvas::Action::publish(Message::UpdateHover(hover)));
+		}
+		None
 	}
 }
 

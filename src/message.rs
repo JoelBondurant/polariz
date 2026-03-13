@@ -1,5 +1,5 @@
 #[derive(Clone, Debug)]
 pub enum Message {
 	RasterizationResult(u32, u32, Vec<u8>),
-	None,
+	UpdateHover(Option<String>),
 }
