@@ -98,6 +98,7 @@ pub trait PlotKernel {
 
 pub struct PlotWidget<'a> {
 	pub kernel: &'a dyn PlotKernel,
+	pub title: String,
 	pub padding: f32,
 }
 
@@ -113,14 +114,27 @@ impl<'a> Program<Message> for PlotWidget<'a> {
 		cursor: Cursor,
 	) -> Vec<Geometry> {
 		let mut frame = Frame::new(renderer, bounds.size());
+		let padding_top = self.padding + 20.0;
+		let padding_bottom = self.padding + 20.0;
+		let padding_left = self.padding + 20.0;
+		let padding_right = self.padding;
 		let plot_area = Rectangle {
-			x: bounds.x + self.padding,
-			y: bounds.y + self.padding,
-			width: bounds.width - (self.padding * 2.0),
-			height: bounds.height - (self.padding * 2.0),
+			x: padding_left,
+			y: padding_top,
+			width: bounds.width - padding_left - padding_right,
+			height: bounds.height - padding_top - padding_bottom,
 		};
 		let layout = self.kernel.layout();
 		let transform = CoordinateTransformer::new(&layout, plot_area);
+		frame.fill_text(Text {
+			content: self.title.clone(),
+			position: Point::new(bounds.width / 2.0, padding_top / 2.0),
+			color: Color::WHITE,
+			size: iced::Pixels(20.0),
+			align_x: alignment::Horizontal::Center.into(),
+			align_y: alignment::Vertical::Center,
+			..Default::default()
+		});
 		match &layout {
 			PlotLayout::Cartesian { x_range, y_range } => {
 				self.draw_cartesian_grid(&mut frame, plot_area, &transform, *x_range, *y_range);
@@ -134,8 +148,12 @@ impl<'a> Program<Message> for PlotWidget<'a> {
 			PlotLayout::Radial => {}
 		}
 		self.kernel.draw_raster(&mut frame, plot_area, &transform);
+		let relative_cursor = match cursor.position() {
+			Some(pos) => Cursor::Available(Point::new(pos.x - bounds.x, pos.y - bounds.y)),
+			None => Cursor::Unavailable,
+		};
 		self.kernel
-			.draw_overlay(&mut frame, plot_area, &transform, cursor);
+			.draw_overlay(&mut frame, plot_area, &transform, relative_cursor);
 		vec![frame.into_geometry()]
 	}
 
@@ -147,15 +165,23 @@ impl<'a> Program<Message> for PlotWidget<'a> {
 		cursor: Cursor,
 	) -> Option<canvas::Action<Message>> {
 		if let Event::Mouse(iced::mouse::Event::CursorMoved { .. }) = event {
+			let padding_top = self.padding + 20.0;
+			let padding_bottom = self.padding + 20.0;
+			let padding_left = self.padding + 20.0;
+			let padding_right = self.padding;
 			let plot_area = Rectangle {
-				x: bounds.x + self.padding,
-				y: bounds.y + self.padding,
-				width: bounds.width - (self.padding * 2.0),
-				height: bounds.height - (self.padding * 2.0),
+				x: padding_left,
+				y: padding_top,
+				width: bounds.width - padding_left - padding_right,
+				height: bounds.height - padding_top - padding_bottom,
 			};
 			let layout = self.kernel.layout();
 			let transform = CoordinateTransformer::new(&layout, plot_area);
-			let hover = self.kernel.hover(&transform, cursor);
+			let relative_cursor = match cursor.position() {
+				Some(pos) => Cursor::Available(Point::new(pos.x - bounds.x, pos.y - bounds.y)),
+				None => Cursor::Unavailable,
+			};
+			let hover = self.kernel.hover(&transform, relative_cursor);
 			return Some(canvas::Action::publish(Message::UpdateHover(hover)));
 		}
 		None

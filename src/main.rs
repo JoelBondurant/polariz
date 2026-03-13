@@ -1,3 +1,4 @@
+mod hexbin;
 mod message;
 mod plot;
 mod state;
