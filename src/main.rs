@@ -1,3 +1,4 @@
+mod bar;
 mod hexbin;
 mod line;
 mod message;

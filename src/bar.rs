@@ -9,15 +9,15 @@ use rand::RngExt;
 use std::sync::Arc;
 use wgpu::util::DeviceExt;
 
-pub struct LinePlotKernel {
-	pub prepared_data: Arc<LinePreparedData>,
+pub struct BarPlotKernel {
+	pub prepared_data: Arc<BarPreparedData>,
 	pub image_cache: Option<image::Handle>,
 }
 
-impl PlotKernel for LinePlotKernel {
+impl PlotKernel for BarPlotKernel {
 	fn layout(&self) -> PlotLayout {
-		PlotLayout::Cartesian {
-			x_range: self.prepared_data.x_range,
+		PlotLayout::CategoricalX {
+			categories: self.prepared_data.categories.clone(),
 			y_range: self.prepared_data.y_range,
 		}
 	}
@@ -44,8 +44,38 @@ impl PlotKernel for LinePlotKernel {
 
 	fn hover(&self, transform: &CoordinateTransformer, cursor: Cursor) -> Option<String> {
 		if let Some(cursor_pos) = cursor.position()
-			&& let Some((x, y)) = transform.pixel_to_cartesian(cursor_pos) {
-			return Some(format!("X: {:.2}, Y: {:.2}", x, y));
+			&& let PlotLayout::CategoricalX {
+				categories,
+				y_range,
+			} = self.layout()
+			{
+				let num_groups = self.prepared_data.num_groups;
+				for (i, cat_name) in categories.iter().enumerate() {
+					let (center, band_width) = transform.categorical(i, 0.0);
+					let left = center.x - band_width / 2.0;
+					let right = center.x + band_width / 2.0;
+					if cursor_pos.x >= left && cursor_pos.x <= right {
+						let group_area_width = band_width * 0.8;
+						let group_area_offset = (band_width - group_area_width) / 2.0;
+						let cluster_left = left + group_area_offset;
+						let cluster_right = left + group_area_offset + group_area_width;
+						if cursor_pos.x >= cluster_left && cursor_pos.x <= cluster_right {
+							let sub_group_width = group_area_width / num_groups as f32;
+							let local_x = cursor_pos.x - cluster_left;
+							let group_idx = (local_x / sub_group_width).floor() as usize;
+							let group_idx = group_idx.min(num_groups - 1);
+							let y_scale = transform.bounds.height / (y_range.1 - y_range.0);
+							let data_y = y_range.0
+								+ (transform.bounds.y + transform.bounds.height - cursor_pos.y)
+									/ y_scale;
+							let group_name = &self.prepared_data.group_names[group_idx];
+							return Some(format!(
+								"{}: {} (Value: ~{:.2})",
+								cat_name, group_name, data_y
+							));
+						}
+					}
+			}
 		}
 		None
 	}
@@ -63,32 +93,32 @@ impl PlotKernel for LinePlotKernel {
 }
 
 async fn rasterize_task(
-	data: Arc<LinePreparedData>,
+	data: Arc<BarPreparedData>,
 	width: u32,
 	height: u32,
 ) -> (u32, u32, Vec<u8>) {
-	rasterize_line_plot_internal(&data, width, height).await
+	rasterize_bar_plot_internal(&data, width, height).await
 }
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-struct LineVertex {
+struct BarVertex {
 	position: [f32; 2],
 	color: [f32; 3],
 }
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-struct LineUniforms {
-	x_min: f32,
-	x_max: f32,
+struct BarUniforms {
 	y_min: f32,
 	y_max: f32,
 }
 
-pub struct LinePreparedData {
-	vertices: Vec<LineVertex>,
-	pub x_range: (f32, f32),
+pub struct BarPreparedData {
+	vertices: Vec<BarVertex>,
+	pub categories: Vec<String>,
+	pub group_names: Vec<String>,
+	pub num_groups: usize,
 	pub y_range: (f32, f32),
 }
 
@@ -109,68 +139,129 @@ fn viridis(t: f32) -> [f32; 3] {
 	]
 }
 
-pub fn prepare_line_data(
+pub fn prepare_bar_data(
 	df: &DataFrame,
 	cat_col: &str,
-	x_col: &str,
-	y_col: &str,
-) -> LinePreparedData {
-	let x_col_series = df.column(x_col).unwrap().cast(&DataType::Float32).unwrap();
-	let y_col_series = df.column(y_col).unwrap().cast(&DataType::Float32).unwrap();
-	let x_series = x_col_series.f32().unwrap();
-	let y_series = y_col_series.f32().unwrap();
-	let x_range = (x_series.min().unwrap_or(0.0), x_series.max().unwrap_or(1.0));
-	let y_series_min = y_series.min().unwrap_or(0.0);
-	let y_series_max = y_series.max().unwrap_or(1.0);
-	let y_range = (y_series_min, y_series_max);
-	let x_pad = (x_range.1 - x_range.0) * 0.05;
-	let y_pad = (y_range.1 - y_range.0) * 0.05;
-	let x_range = (x_range.0 - x_pad, x_range.1 + x_pad);
-	let y_range = (y_range.0 - y_pad, y_range.1 + y_pad);
-	let mut vertices = Vec::new();
-	let partitions = df.partition_by([cat_col], true).unwrap();
-	let num_partitions = partitions.len();
-	for (i, group_df) in partitions.into_iter().enumerate() {
-		let xs_col = group_df
-			.column(x_col)
-			.unwrap()
-			.cast(&DataType::Float32)
-			.unwrap();
-		let ys_col = group_df
-			.column(y_col)
-			.unwrap()
-			.cast(&DataType::Float32)
-			.unwrap();
-		let xs = xs_col.f32().unwrap();
-		let ys = ys_col.f32().unwrap();
-		let t = if num_partitions > 1 {
-			i as f32 / (num_partitions - 1) as f32
-		} else {
-			0.5
-		};
-		let color = viridis(t);
-		let mut prev_point: Option<[f32; 2]> = None;
-		for j in 0..group_df.height() {
-			let p = [xs.get(j).unwrap(), ys.get(j).unwrap()];
-			if let Some(prev) = prev_point {
-				vertices.push(LineVertex {
-					position: prev,
-					color,
-				});
-				vertices.push(LineVertex { position: p, color });
+	group_col: &str,
+	val_col: &str,
+) -> BarPreparedData {
+	let categories_series = df
+		.column(cat_col)
+		.unwrap()
+		.unique()
+		.unwrap()
+		.sort(Default::default())
+		.unwrap();
+	let categories: Vec<String> = categories_series
+		.as_materialized_series()
+		.iter()
+		.map(|v| {
+			if let AnyValue::String(s) = v {
+				s.to_string()
+			} else {
+				v.to_string()
 			}
-			prev_point = Some(p);
+		})
+		.collect();
+	let groups_series = df
+		.column(group_col)
+		.unwrap()
+		.unique()
+		.unwrap()
+		.sort(Default::default())
+		.unwrap();
+	let group_names: Vec<String> = groups_series
+		.as_materialized_series()
+		.iter()
+		.map(|v| {
+			if let AnyValue::String(s) = v {
+				s.to_string()
+			} else {
+				v.to_string()
+			}
+		})
+		.collect();
+	let num_cats = categories.len();
+	let num_groups = group_names.len();
+	let vals_col_series = df
+		.column(val_col)
+		.unwrap()
+		.cast(&DataType::Float32)
+		.unwrap();
+	let vals_f32 = vals_col_series.f32().unwrap();
+	let y_max = vals_f32.max().unwrap_or(1.0);
+	let y_min = 0.0f32;
+	let y_range = (y_min, y_max * 1.1);
+	let mut vertices = Vec::with_capacity(num_cats * num_groups * 6);
+	let group_colors: Vec<[f32; 3]> = (0..num_groups)
+		.map(|i| {
+			let t = if num_groups > 1 {
+				i as f32 / (num_groups - 1) as f32
+			} else {
+				0.5
+			};
+			viridis(t)
+		})
+		.collect();
+	let total_band_width = 2.0 / num_cats as f32;
+	let group_area_width = total_band_width * 0.8; // 20% gap between categories
+	let group_area_offset = (total_band_width - group_area_width) / 2.0;
+	let sub_group_width = group_area_width / num_groups as f32;
+	let bar_padding = sub_group_width * 0.05;
+	let partitions = df.partition_by([cat_col], true).unwrap();
+	for (i, group_df) in partitions.into_iter().enumerate() {
+		let cat_left = -1.0 + (i as f32 * total_band_width);
+		let group_partitions = group_df.partition_by([group_col], true).unwrap();
+		for (j, sub_group_df) in group_partitions.into_iter().enumerate() {
+			let val_series = sub_group_df
+				.column(val_col)
+				.unwrap()
+				.cast(&DataType::Float32)
+				.unwrap();
+			let val = val_series.f32().unwrap().get(0).unwrap_or(0.0);
+			let color = group_colors[j];
+			let x_start = cat_left + group_area_offset + (j as f32 * sub_group_width) + bar_padding;
+			let x_end =
+				cat_left + group_area_offset + ((j + 1) as f32 * sub_group_width) - bar_padding;
+			let y_start = y_min;
+			let y_end = val;
+			vertices.push(BarVertex {
+				position: [x_start, y_start],
+				color,
+			});
+			vertices.push(BarVertex {
+				position: [x_end, y_start],
+				color,
+			});
+			vertices.push(BarVertex {
+				position: [x_end, y_end],
+				color,
+			});
+			vertices.push(BarVertex {
+				position: [x_start, y_start],
+				color,
+			});
+			vertices.push(BarVertex {
+				position: [x_end, y_end],
+				color,
+			});
+			vertices.push(BarVertex {
+				position: [x_start, y_end],
+				color,
+			});
 		}
 	}
-	LinePreparedData {
+	BarPreparedData {
 		vertices,
-		x_range,
+		categories,
+		group_names,
+		num_groups,
 		y_range,
 	}
 }
 
-pub async fn rasterize_line_plot_internal(
-	data: &LinePreparedData,
+pub async fn rasterize_bar_plot_internal(
+	data: &BarPreparedData,
 	width: u32,
 	height: u32,
 ) -> (u32, u32, Vec<u8>) {
@@ -183,19 +274,16 @@ pub async fn rasterize_line_plot_internal(
 		.request_device(&wgpu::DeviceDescriptor::default())
 		.await
 		.unwrap();
-
 	let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
 		label: None,
-		source: wgpu::ShaderSource::Wgsl(include_str!("line.wgsl").into()),
+		source: wgpu::ShaderSource::Wgsl(include_str!("bar.wgsl").into()),
 	});
 	let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
 		label: Some("Vertex Buffer"),
 		contents: bytemuck::cast_slice(&data.vertices),
 		usage: wgpu::BufferUsages::VERTEX,
 	});
-	let uniforms = LineUniforms {
-		x_min: data.x_range.0,
-		x_max: data.x_range.1,
+	let uniforms = BarUniforms {
 		y_min: data.y_range.0,
 		y_max: data.y_range.1,
 	};
@@ -237,7 +325,7 @@ pub async fn rasterize_line_plot_internal(
 			module: &shader,
 			entry_point: Some("vs_main"),
 			buffers: &[wgpu::VertexBufferLayout {
-				array_stride: std::mem::size_of::<LineVertex>() as wgpu::BufferAddress,
+				array_stride: std::mem::size_of::<BarVertex>() as wgpu::BufferAddress,
 				step_mode: wgpu::VertexStepMode::Vertex,
 				attributes: &wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x3],
 			}],
@@ -254,7 +342,7 @@ pub async fn rasterize_line_plot_internal(
 			compilation_options: Default::default(),
 		}),
 		primitive: wgpu::PrimitiveState {
-			topology: wgpu::PrimitiveTopology::LineList,
+			topology: wgpu::PrimitiveTopology::TriangleList,
 			..Default::default()
 		},
 		depth_stencil: None,
@@ -345,30 +433,29 @@ pub async fn rasterize_line_plot_internal(
 	(width, height, pixel_data)
 }
 
-pub fn generate_sample_line_data() -> DataFrame {
-	let num_series = 5;
-	let n_per_series = 1000;
-	let total_n = num_series * n_per_series;
-	let mut rng = rand::rng();
+pub fn generate_sample_bar_data() -> DataFrame {
+	let num_cats = 12;
+	let num_groups = 6;
+	let total_n = num_cats * num_groups;
 	let mut cats = Vec::with_capacity(total_n);
-	let mut xs = Vec::with_capacity(total_n);
-	let mut ys = Vec::with_capacity(total_n);
-	for i in 0..num_series {
-		let cat = format!("Series {}", i);
-		let mut current_y: f32 = rng.random_range(0.0..10.0f32);
-		for j in 0..n_per_series {
+	let mut groups = Vec::with_capacity(total_n);
+	let mut vals = Vec::with_capacity(total_n);
+	let mut rng = rand::rng();
+	for i in 0..num_cats {
+		let cat = format!("Cat {:02}", i + 1);
+		for j in 0..num_groups {
+			let group = format!("Group {:02}", j + 1);
 			cats.push(cat.clone());
-			xs.push(j as f32);
-			current_y += rng.random_range(-1.0..1.0f32);
-			ys.push(current_y);
+			groups.push(group);
+			vals.push(rng.random_range(5.0..50.0f32));
 		}
 	}
 	DataFrame::new(
 		total_n,
 		vec![
 			Column::new("cat".into(), cats),
-			Column::new("x".into(), xs),
-			Column::new("y".into(), ys),
+			Column::new("group".into(), groups),
+			Column::new("val".into(), vals),
 		],
 	)
 	.unwrap()

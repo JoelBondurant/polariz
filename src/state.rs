@@ -1,3 +1,4 @@
+use crate::bar::{self, BarPlotKernel};
 use crate::hexbin::{self, HexbinPlotKernel};
 use crate::line::{self, LinePlotKernel};
 use crate::message::Message;
@@ -32,7 +33,7 @@ pub fn run() -> Result {
 }
 
 fn new() -> (AppState, Task<Message>) {
-	let plot_type = PlotType::Violin;
+	let plot_type = PlotType::Bar;
 	let (kernel, task) = create_plot(plot_type, WIDTH, HEIGHT);
 	let state = AppState {
 		kernel,
@@ -73,6 +74,16 @@ fn create_plot(
 			let df = line::generate_sample_line_data();
 			let prepared = line::prepare_line_data(&df, "cat", "x", "y");
 			let kernel = LinePlotKernel {
+				prepared_data: Arc::new(prepared),
+				image_cache: None,
+			};
+			let task = kernel.rasterize(width, height);
+			(Box::new(kernel), task)
+		}
+		PlotType::Bar => {
+			let df = bar::generate_sample_bar_data();
+			let prepared = bar::prepare_bar_data(&df, "cat", "group", "val");
+			let kernel = BarPlotKernel {
 				prepared_data: Arc::new(prepared),
 				image_cache: None,
 			};

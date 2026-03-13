@@ -114,9 +114,9 @@ impl<'a> Program<Message> for PlotWidget<'a> {
 		cursor: Cursor,
 	) -> Vec<Geometry> {
 		let mut frame = Frame::new(renderer, bounds.size());
-		let padding_top = self.padding + 20.0;
-		let padding_bottom = self.padding + 20.0;
-		let padding_left = self.padding + 20.0;
+		let padding_top = self.padding;
+		let padding_bottom = self.padding + 30.0; // More room for X labels
+		let padding_left = self.padding + 30.0; // More room for Y labels
 		let padding_right = self.padding;
 		let plot_area = Rectangle {
 			x: padding_left,
@@ -165,9 +165,9 @@ impl<'a> Program<Message> for PlotWidget<'a> {
 		cursor: Cursor,
 	) -> Option<canvas::Action<Message>> {
 		if let Event::Mouse(iced::mouse::Event::CursorMoved { .. }) = event {
-			let padding_top = self.padding + 20.0;
-			let padding_bottom = self.padding + 20.0;
-			let padding_left = self.padding + 20.0;
+			let padding_top = self.padding;
+			let padding_bottom = self.padding + 30.0;
+			let padding_left = self.padding + 30.0;
 			let padding_right = self.padding;
 			let plot_area = Rectangle {
 				x: padding_left,
