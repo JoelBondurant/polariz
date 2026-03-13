@@ -2,7 +2,7 @@ use crate::message::Message;
 use crate::plot::{PlotKernel, PlotWidget};
 use crate::violin::{self, ViolinPlotKernel};
 use iced::widget::{canvas, container};
-use iced::{Element, Length, Task};
+use iced::{window, Element, Length, Size, Task};
 use std::sync::Arc;
 
 struct AppState {
@@ -12,7 +12,13 @@ struct AppState {
 pub type Result = iced::Result;
 
 pub fn run() -> Result {
-	iced::application(new, update, view).title("Polariz").run()
+	iced::application(new, update, view)
+		.title("Polariz")
+		.window(window::Settings {
+			size: Size::new(1800.0, 1000.0),
+			..Default::default()
+		})
+		.run()
 }
 
 fn new() -> (AppState, Task<Message>) {
@@ -22,8 +28,8 @@ fn new() -> (AppState, Task<Message>) {
 		prepared_data: Arc::new(prepared),
 		image_cache: None,
 	};
-	let width = 3840;
-	let height = 2160;
+	let width = 7680;
+	let height = 4320;
 	let boxed_kernel: Box<dyn PlotKernel> = Box::new(kernel);
 	let task = boxed_kernel.rasterize(width, height);
 	let state = AppState {
@@ -46,7 +52,7 @@ fn view(state: &AppState) -> Element<'_, Message> {
 	let content = container(
 		canvas(PlotWidget {
 			kernel: state.kernel.as_ref(),
-			padding: 40.0,
+			padding: 50.0,
 		})
 		.width(Length::Fill)
 		.height(Length::Fill),
@@ -59,7 +65,6 @@ fn view(state: &AppState) -> Element<'_, Message> {
 		))),
 		..Default::default()
 	});
-
 	let element: Element<'_, ()> = content.into();
 	element.map(|_| Message::None)
 }

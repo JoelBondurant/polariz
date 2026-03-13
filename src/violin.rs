@@ -146,7 +146,7 @@ pub fn prepare_violin_data(
 				.f32()
 				.unwrap();
 			let (y_min, y_max) = (col.min().unwrap(), col.max().unwrap());
-			let pad = (y_max - y_min) * 0.1; // Consistent padding
+			let pad = (y_max - y_min) * 0.1;
 			(y_min - pad, y_max + pad)
 		}
 	};
@@ -240,7 +240,7 @@ pub async fn rasterize_violin_plot_internal(
 		num_groups: data.num_violins as u32,
 		y_min: data.y_range.0,
 		y_max: data.y_range.1,
-		width_scale: 0.4,
+		width_scale: 0.3,
 	};
 	let uniform_buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
 		label: None,

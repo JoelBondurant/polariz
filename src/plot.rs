@@ -1,5 +1,6 @@
 use crate::message::Message;
 use iced::advanced::mouse::Cursor;
+use iced::alignment;
 use iced::widget::canvas::{Frame, Geometry, Path, Program, Stroke, Style, Text};
 use iced::{Color, Point, Rectangle, Renderer, Task, Theme};
 
@@ -157,7 +158,7 @@ impl<'a> PlotWidget<'a> {
 			..Default::default()
 		};
 		let num_ticks = 8;
-		let path = Path::new(|builder| {
+		let grid_path = Path::new(|builder| {
 			for i in 0..=num_ticks {
 				let t = i as f32 / num_ticks as f32;
 				let data_y = y_range.0 + (y_range.1 - y_range.0) * t;
@@ -165,13 +166,6 @@ impl<'a> PlotWidget<'a> {
 				let p_right = transform.cartesian(x_range.1, data_y);
 				builder.move_to(p_left);
 				builder.line_to(p_right);
-				frame.fill_text(Text {
-					content: format!("{:.1}", data_y),
-					position: Point::new(p_left.x - 30.0, p_left.y - 8.0),
-					color: Color::WHITE,
-					size: iced::Pixels(14.0),
-					..Default::default()
-				});
 			}
 			for i in 0..=num_ticks {
 				let t = i as f32 / num_ticks as f32;
@@ -180,16 +174,9 @@ impl<'a> PlotWidget<'a> {
 				let p_top = transform.cartesian(data_x, y_range.1);
 				builder.move_to(p_bottom);
 				builder.line_to(p_top);
-				frame.fill_text(Text {
-					content: format!("{:.1}", data_x),
-					position: Point::new(p_bottom.x - 10.0, p_bottom.y + 10.0),
-					color: Color::WHITE,
-					size: iced::Pixels(14.0),
-					..Default::default()
-				});
 			}
 		});
-		frame.stroke(&path, grid_stroke);
+		frame.stroke(&grid_path, grid_stroke);
 		let axes_path = Path::new(|builder| {
 			let origin = transform.cartesian(x_range.0, y_range.0);
 			let x_max = transform.cartesian(x_range.1, y_range.0);
@@ -199,6 +186,43 @@ impl<'a> PlotWidget<'a> {
 			builder.line_to(x_max);
 		});
 		frame.stroke(&axes_path, axis_stroke);
+		for i in 0..=num_ticks {
+			let t = i as f32 / num_ticks as f32;
+			let data_y = y_range.0 + (y_range.1 - y_range.0) * t;
+			let p_left = transform.cartesian(x_range.0, data_y);
+			let tick_path = Path::new(|builder| {
+				builder.move_to(p_left);
+				builder.line_to(Point::new(p_left.x - 5.0, p_left.y));
+			});
+			frame.stroke(&tick_path, axis_stroke);
+			frame.fill_text(Text {
+				content: format!("{:.1}", data_y),
+				position: Point::new(p_left.x - 10.0, p_left.y),
+				color: Color::WHITE,
+				size: iced::Pixels(14.0),
+				align_x: alignment::Horizontal::Right.into(),
+				align_y: alignment::Vertical::Center,
+				..Default::default()
+			});
+		}
+		for i in 0..=num_ticks {
+			let t = i as f32 / num_ticks as f32;
+			let data_x = x_range.0 + (x_range.1 - x_range.0) * t;
+			let p_bottom = transform.cartesian(data_x, y_range.0);
+			let tick_path = Path::new(|builder| {
+				builder.move_to(p_bottom);
+				builder.line_to(Point::new(p_bottom.x, p_bottom.y + 5.0));
+			});
+			frame.stroke(&tick_path, axis_stroke);
+			frame.fill_text(Text {
+				content: format!("{:.1}", data_x),
+				position: Point::new(p_bottom.x, p_bottom.y + 10.0),
+				color: Color::WHITE,
+				size: iced::Pixels(14.0),
+				align_x: alignment::Horizontal::Center.into(),
+				..Default::default()
+			});
+		}
 	}
 
 	fn draw_categorical_axes(
@@ -215,32 +239,52 @@ impl<'a> PlotWidget<'a> {
 			..Default::default()
 		};
 		let num_ticks = 8;
-		let y_path = Path::new(|builder| {
-			for i in 0..=num_ticks {
-				let t = i as f32 / num_ticks as f32;
-				let data_y = y_range.0 + (y_range.1 - y_range.0) * t;
-				let (first_cat_center, band_width) = transform.categorical(0, data_y);
-				let left_edge = first_cat_center.x - (band_width / 2.0);
-				let p_left = Point::new(left_edge, first_cat_center.y);
-				builder.move_to(p_left);
-				builder.line_to(Point::new(p_left.x + 5.0, p_left.y)); // Just a tick mark
-				frame.fill_text(Text {
-					content: format!("{:.1}", data_y),
-					position: Point::new(p_left.x - 30.0, p_left.y - 8.0),
-					color: Color::WHITE,
-					size: iced::Pixels(14.0),
-					..Default::default()
-				});
-			}
+		let axes_path = Path::new(|builder| {
+			let (first_cat_center, band_width) = transform.categorical(0, y_range.1);
+			let left_edge = first_cat_center.x - (band_width / 2.0);
+			let top_y = first_cat_center.y;
+			let (last_cat_center, _) = transform.categorical(categories.len() - 1, y_range.0);
+			let right_edge = last_cat_center.x + (band_width / 2.0);
+			let bottom_y = last_cat_center.y;
+			builder.move_to(Point::new(left_edge, top_y));
+			builder.line_to(Point::new(left_edge, bottom_y));
+			builder.line_to(Point::new(right_edge, bottom_y));
 		});
-		frame.stroke(&y_path, axis_stroke);
-		for (i, cat) in categories.iter().enumerate() {
-			let (center_px, _) = transform.categorical(i, y_range.0);
+		frame.stroke(&axes_path, axis_stroke);
+		for i in 0..=num_ticks {
+			let t = i as f32 / num_ticks as f32;
+			let data_y = y_range.0 + (y_range.1 - y_range.0) * t;
+			let (center, band_width) = transform.categorical(0, data_y);
+			let left_edge = center.x - (band_width / 2.0);
+			let p_left = Point::new(left_edge, center.y);
+			let tick_path = Path::new(|builder| {
+				builder.move_to(p_left);
+				builder.line_to(Point::new(p_left.x - 5.0, p_left.y));
+			});
+			frame.stroke(&tick_path, axis_stroke);
 			frame.fill_text(Text {
-				content: cat.clone(),
-				position: Point::new(center_px.x - 15.0, center_px.y + 10.0),
+				content: format!("{:.1}", data_y),
+				position: Point::new(p_left.x - 10.0, p_left.y),
 				color: Color::WHITE,
 				size: iced::Pixels(14.0),
+				align_x: alignment::Horizontal::Right.into(),
+				align_y: alignment::Vertical::Center,
+				..Default::default()
+			});
+		}
+		for (i, cat) in categories.iter().enumerate() {
+			let (center_px, _band_width) = transform.categorical(i, y_range.0);
+			let tick_path = Path::new(|builder| {
+				builder.move_to(center_px);
+				builder.line_to(Point::new(center_px.x, center_px.y + 5.0));
+			});
+			frame.stroke(&tick_path, axis_stroke);
+			frame.fill_text(Text {
+				content: cat.clone(),
+				position: Point::new(center_px.x, center_px.y + 10.0),
+				color: Color::WHITE,
+				size: iced::Pixels(14.0),
+				align_x: alignment::Horizontal::Center.into(),
 				..Default::default()
 			});
 		}
