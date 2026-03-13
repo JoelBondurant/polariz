@@ -1,6 +1,7 @@
+use crate::message::Message;
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{Frame, Geometry, Path, Program, Stroke, Style, Text};
-use iced::{Color, Point, Rectangle, Renderer, Theme};
+use iced::{Color, Point, Rectangle, Renderer, Task, Theme};
 
 #[allow(dead_code)]
 #[derive(Clone)]
@@ -30,10 +31,8 @@ impl<'a> CoordinateTransformer<'a> {
 		if let PlotLayout::Cartesian { x_range, y_range } = self.layout {
 			let x_scale = self.bounds.width / (x_range.1 - x_range.0);
 			let y_scale = self.bounds.height / (y_range.1 - y_range.0);
-
 			let pixel_x = self.bounds.x + ((data_x - x_range.0) * x_scale);
 			let pixel_y = self.bounds.y + self.bounds.height - ((data_y - y_range.0) * y_scale);
-
 			Point::new(pixel_x, pixel_y)
 		} else {
 			Point::ORIGIN
@@ -48,12 +47,10 @@ impl<'a> CoordinateTransformer<'a> {
 		{
 			let num_cats = categories.len() as f32;
 			let band_width = self.bounds.width / num_cats;
-
 			let center_x =
 				self.bounds.x + (category_index as f32 * band_width) + (band_width / 2.0);
 			let y_scale = self.bounds.height / (y_range.1 - y_range.0);
 			let pixel_y = self.bounds.y + self.bounds.height - ((data_y - y_range.0) * y_scale);
-
 			(Point::new(center_x, pixel_y), band_width)
 		} else {
 			(Point::ORIGIN, 0.0)
@@ -66,14 +63,11 @@ impl<'a> CoordinateTransformer<'a> {
 			if !self.bounds.contains(cursor_pos) {
 				return None;
 			}
-
 			let x_scale = (x_range.1 - x_range.0) / self.bounds.width;
 			let y_scale = (y_range.1 - y_range.0) / self.bounds.height;
-
 			let data_x = x_range.0 + ((cursor_pos.x - self.bounds.x) * x_scale);
 			let data_y =
 				y_range.0 + ((self.bounds.y + self.bounds.height - cursor_pos.y) * y_scale);
-
 			Some((data_x, data_y))
 		} else {
 			None
@@ -84,23 +78,27 @@ impl<'a> CoordinateTransformer<'a> {
 pub trait PlotKernel {
 	fn layout(&self) -> PlotLayout;
 
-	fn draw_data(&self, frame: &mut Frame, bounds: Rectangle, transform: &CoordinateTransformer);
+	fn draw_raster(&self, frame: &mut Frame, bounds: Rectangle, transform: &CoordinateTransformer);
 
-	fn draw_interaction(
+	fn draw_overlay(
 		&self,
 		frame: &mut Frame,
 		bounds: Rectangle,
 		transform: &CoordinateTransformer,
 		cursor: Cursor,
 	);
+
+	fn rasterize(&self, width: u32, height: u32) -> Task<Message>;
+
+	fn update_raster(&mut self, width: u32, height: u32, pixels: Vec<u8>);
 }
 
-pub struct PlotWidget<'a, K: PlotKernel> {
-	pub kernel: &'a K,
+pub struct PlotWidget<'a> {
+	pub kernel: &'a dyn PlotKernel,
 	pub padding: f32,
 }
 
-impl<'a, K: PlotKernel> Program<()> for PlotWidget<'a, K> {
+impl<'a> Program<()> for PlotWidget<'a> {
 	type State = ();
 
 	fn draw(
@@ -130,16 +128,16 @@ impl<'a, K: PlotKernel> Program<()> for PlotWidget<'a, K> {
 			} => {
 				self.draw_categorical_axes(&mut frame, plot_area, &transform, categories, *y_range);
 			}
-			PlotLayout::Radial => {} // No axes needed
+			PlotLayout::Radial => {}
 		}
-		self.kernel.draw_data(&mut frame, plot_area, &transform);
+		self.kernel.draw_raster(&mut frame, plot_area, &transform);
 		self.kernel
-			.draw_interaction(&mut frame, plot_area, &transform, cursor);
+			.draw_overlay(&mut frame, plot_area, &transform, cursor);
 		vec![frame.into_geometry()]
 	}
 }
 
-impl<'a, K: PlotKernel> PlotWidget<'a, K> {
+impl<'a> PlotWidget<'a> {
 	fn draw_cartesian_grid(
 		&self,
 		frame: &mut Frame,
@@ -158,7 +156,7 @@ impl<'a, K: PlotKernel> PlotWidget<'a, K> {
 			width: 2.0,
 			..Default::default()
 		};
-		let num_ticks = 5;
+		let num_ticks = 8;
 		let path = Path::new(|builder| {
 			for i in 0..=num_ticks {
 				let t = i as f32 / num_ticks as f32;
@@ -171,7 +169,7 @@ impl<'a, K: PlotKernel> PlotWidget<'a, K> {
 					content: format!("{:.1}", data_y),
 					position: Point::new(p_left.x - 30.0, p_left.y - 8.0),
 					color: Color::WHITE,
-					size: iced::Pixels(12.0),
+					size: iced::Pixels(14.0),
 					..Default::default()
 				});
 			}
@@ -186,7 +184,7 @@ impl<'a, K: PlotKernel> PlotWidget<'a, K> {
 					content: format!("{:.1}", data_x),
 					position: Point::new(p_bottom.x - 10.0, p_bottom.y + 10.0),
 					color: Color::WHITE,
-					size: iced::Pixels(12.0),
+					size: iced::Pixels(14.0),
 					..Default::default()
 				});
 			}
@@ -216,7 +214,7 @@ impl<'a, K: PlotKernel> PlotWidget<'a, K> {
 			width: 2.0,
 			..Default::default()
 		};
-		let num_ticks = 5;
+		let num_ticks = 8;
 		let y_path = Path::new(|builder| {
 			for i in 0..=num_ticks {
 				let t = i as f32 / num_ticks as f32;
@@ -230,7 +228,7 @@ impl<'a, K: PlotKernel> PlotWidget<'a, K> {
 					content: format!("{:.1}", data_y),
 					position: Point::new(p_left.x - 30.0, p_left.y - 8.0),
 					color: Color::WHITE,
-					size: iced::Pixels(12.0),
+					size: iced::Pixels(14.0),
 					..Default::default()
 				});
 			}
@@ -242,7 +240,7 @@ impl<'a, K: PlotKernel> PlotWidget<'a, K> {
 				content: cat.clone(),
 				position: Point::new(center_px.x - 15.0, center_px.y + 10.0),
 				color: Color::WHITE,
-				size: iced::Pixels(12.0),
+				size: iced::Pixels(14.0),
 				..Default::default()
 			});
 		}

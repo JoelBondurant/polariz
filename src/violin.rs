@@ -1,31 +1,35 @@
+use crate::message::Message;
 use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{self, Frame};
 use iced::widget::image;
-use iced::{Color, Point, Rectangle};
+use iced::{Color, Point, Rectangle, Task};
 use polars::prelude::*;
 use rand::RngExt;
 use rand_distr::{Distribution, Normal};
 use wgpu::util::DeviceExt;
+use std::sync::Arc;
 
 pub struct ViolinPlotKernel {
-	pub layout_cache: PlotLayout,
+	pub prepared_data: Arc<ViolinPreparedData>,
 	pub image_cache: Option<image::Handle>,
-	pub medians: Vec<f32>,
 }
 
 impl PlotKernel for ViolinPlotKernel {
 	fn layout(&self) -> PlotLayout {
-		self.layout_cache.clone()
+		PlotLayout::CategoricalX {
+			categories: self.prepared_data.categories.clone(),
+			y_range: self.prepared_data.y_range,
+		}
 	}
 
-	fn draw_data(&self, frame: &mut Frame, bounds: Rectangle, _transform: &CoordinateTransformer) {
+	fn draw_raster(&self, frame: &mut Frame, bounds: Rectangle, _transform: &CoordinateTransformer) {
 		if let Some(handle) = &self.image_cache {
 			frame.draw_image(bounds, &handle.clone());
 		}
 	}
 
-	fn draw_interaction(
+	fn draw_overlay(
 		&self,
 		frame: &mut Frame,
 		_bounds: Rectangle,
@@ -33,13 +37,13 @@ impl PlotKernel for ViolinPlotKernel {
 		cursor: Cursor,
 	) {
 		if let Some(cursor_pos) = cursor.position()
-			&& let PlotLayout::CategoricalX { categories, .. } = &self.layout_cache {
+			&& let PlotLayout::CategoricalX { categories, .. } = self.layout() {
 			for (i, cat) in categories.iter().enumerate() {
 				let (center_point, band_width) = transform.categorical(i, 0.0);
 				let left_edge = center_point.x - (band_width / 2.0);
 				let right_edge = center_point.x + (band_width / 2.0);
 				if cursor_pos.x >= left_edge && cursor_pos.x <= right_edge {
-					if let Some(&median_val) = self.medians.get(i) {
+					if let Some(&median_val) = self.prepared_data.medians.get(i) {
 						let (median_px, _) = transform.categorical(i, median_val);
 						let path = canvas::Path::circle(median_px, 4.0);
 						frame.fill(&path, Color::from_rgb(1.0, 0.2, 0.2));
@@ -56,7 +60,28 @@ impl PlotKernel for ViolinPlotKernel {
 			}
 		}
 	}
+	
+	fn rasterize(&self, width: u32, height: u32) -> Task<Message> {
+		let data = self.prepared_data.clone();
+		Task::perform(
+			rasterize_task(data, width, height),
+			|(w, h, pixels)| Message::RasterizationResult(w, h, pixels),
+		)
+	}
+	
+	fn update_raster(&mut self, width: u32, height: u32, pixels: Vec<u8>) {
+		self.image_cache = Some(image::Handle::from_rgba(width, height, pixels));
+	}
 }
+
+async fn rasterize_task(
+	data: Arc<ViolinPreparedData>,
+	width: u32,
+	height: u32,
+) -> (u32, u32, Vec<u8>) {
+	rasterize_violin_plot_internal(&data, width, height).await
+}
+
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -96,14 +121,21 @@ fn compute_kde(
 	density
 }
 
-pub async fn generate_violin_plot(
+pub struct ViolinPreparedData {
+	pub categories: Vec<String>,
+	pub y_range: (f32, f32),
+	pub medians: Vec<f32>,
+	pub kde_texture_data: Vec<f32>,
+	pub num_violins: usize,
+	pub tex_height_bins: usize,
+}
+
+pub fn prepare_violin_data(
 	df: &DataFrame,
 	cat_col: &str,
 	val_col: &str,
-	width: u32,
-	height: u32,
 	manual_range: Option<(f32, f32)>,
-) -> (u32, u32, Vec<u8>) {
+) -> ViolinPreparedData {
 	let (y_min, y_max) = match manual_range {
 		Some(r) => r,
 		None => {
@@ -114,7 +146,7 @@ pub async fn generate_violin_plot(
 				.f32()
 				.unwrap();
 			let (y_min, y_max) = (col.min().unwrap(), col.max().unwrap());
-			let pad = (y_max - y_min) * 0.002;
+			let pad = (y_max - y_min) * 0.1; // Consistent padding
 			(y_min - pad, y_max + pad)
 		}
 	};
@@ -142,19 +174,40 @@ pub async fn generate_violin_plot(
 		.as_materialized_series()
 		.list()
 		.unwrap();
+	let categories_series = group_data.column(cat_col).unwrap().as_materialized_series();
+	let categories: Vec<String> = if let Ok(ca) = categories_series.i32() {
+		ca.into_no_null_iter().map(|i| i.to_string()).collect()
+	} else {
+		(0..num_violins).map(|i| i.to_string()).collect()
+	};
 	let tex_height_bins = 1024;
-	let mut tex_data = vec![0.0f32; num_violins * tex_height_bins];
-	let mut medians_vec = Vec::with_capacity(num_violins);
+	let mut kde_texture_data = vec![0.0f32; num_violins * tex_height_bins];
+	let mut medians = Vec::with_capacity(num_violins);
 	for i in 0..num_violins {
-		medians_vec.push(medians_series.get(i).unwrap());
+		medians.push(medians_series.get(i).unwrap());
 		let series = values_list.get_as_series(i).unwrap();
 		let y_slice: Vec<f32> = series.f32().unwrap().into_no_null_iter().collect();
 		let bandwidth = (y_max - y_min) * 0.03;
 		let density = compute_kde(&y_slice, tex_height_bins, y_min, y_max, bandwidth);
 		for bin in 0..tex_height_bins {
-			tex_data[bin * num_violins + i] = density[bin];
+			kde_texture_data[bin * num_violins + i] = density[bin];
 		}
 	}
+	ViolinPreparedData {
+		categories,
+		y_range: (y_min, y_max),
+		medians,
+		kde_texture_data,
+		num_violins,
+		tex_height_bins,
+	}
+}
+
+pub async fn rasterize_violin_plot_internal(
+	data: &ViolinPreparedData,
+	width: u32,
+	height: u32,
+) -> (u32, u32, Vec<u8>) {
 	let instance = wgpu::Instance::default();
 	let adapter = instance
 		.request_adapter(&wgpu::RequestAdapterOptions::default())
@@ -169,8 +222,8 @@ pub async fn generate_violin_plot(
 		&wgpu::TextureDescriptor {
 			label: None,
 			size: wgpu::Extent3d {
-				width: num_violins as u32,
-				height: tex_height_bins as u32,
+				width: data.num_violins as u32,
+				height: data.tex_height_bins as u32,
 				depth_or_array_layers: 1,
 			},
 			mip_level_count: 1,
@@ -181,12 +234,12 @@ pub async fn generate_violin_plot(
 			view_formats: &[],
 		},
 		wgpu::util::TextureDataOrder::MipMajor,
-		bytemuck::cast_slice(&tex_data),
+		bytemuck::cast_slice(&data.kde_texture_data),
 	);
 	let screen_uniform = ScreenUniform {
-		num_groups: num_violins as u32,
-		y_min,
-		y_max,
+		num_groups: data.num_violins as u32,
+		y_min: data.y_range.0,
+		y_max: data.y_range.1,
 		width_scale: 0.4,
 	};
 	let uniform_buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -196,7 +249,7 @@ pub async fn generate_violin_plot(
 	});
 	let medians_buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
 		label: None,
-		contents: bytemuck::cast_slice(&medians_vec),
+		contents: bytemuck::cast_slice(&data.medians),
 		usage: wgpu::BufferUsages::STORAGE,
 	});
 	let bgl = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -349,21 +402,19 @@ pub async fn generate_violin_plot(
 	let buffer_slice = output_buffer.slice(..);
 	let (tx, rx) = std::sync::mpsc::channel();
 	buffer_slice.map_async(wgpu::MapMode::Read, move |res| tx.send(res).unwrap());
-	device
-		.poll(wgpu::PollType::Wait {
-			submission_index: None,
-			timeout: None,
-		})
-		.unwrap();
+	device.poll(wgpu::PollType::Wait {
+		submission_index: None,
+		timeout: None,
+	}).unwrap();
 	rx.recv().unwrap().unwrap();
-	let data = buffer_slice.get_mapped_range();
+	let data_map = buffer_slice.get_mapped_range();
 	let bytes_per_pixel = 4;
 	let unpadded_bytes_per_row = width * bytes_per_pixel;
 	let mut pixel_data = Vec::with_capacity((unpadded_bytes_per_row * height) as usize);
-	for chunk in data.chunks(bytes_per_row as usize) {
+	for chunk in data_map.chunks(bytes_per_row as usize) {
 		pixel_data.extend_from_slice(&chunk[..unpadded_bytes_per_row as usize]);
 	}
-	drop(data);
+	drop(data_map);
 	output_buffer.unmap();
 	(width, height, pixel_data)
 }
