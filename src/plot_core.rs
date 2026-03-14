@@ -1,18 +1,20 @@
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum PlotType {
 	Bar,
 	Hexbin,
 	Line,
+	Pie,
 	Scatter,
 	StackedBar,
 	Violin,
 }
 
 impl PlotType {
-	pub const ALL: [PlotType; 6] = [
+	pub const ALL: [PlotType; 7] = [
 		PlotType::Bar,
 		PlotType::Hexbin,
 		PlotType::Line,
+		PlotType::Pie,
 		PlotType::Scatter,
 		PlotType::StackedBar,
 		PlotType::Violin,
@@ -25,6 +27,7 @@ impl std::fmt::Display for PlotType {
 			PlotType::Bar => write!(f, "Bar Plot"),
 			PlotType::Hexbin => write!(f, "Hexbin Plot"),
 			PlotType::Line => write!(f, "Line Plot"),
+			PlotType::Pie => write!(f, "Pie Chart"),
 			PlotType::Scatter => write!(f, "Scatter Plot"),
 			PlotType::StackedBar => write!(f, "Stacked Bar Plot"),
 			PlotType::Violin => write!(f, "Violin Plot"),

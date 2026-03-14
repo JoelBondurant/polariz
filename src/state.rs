@@ -2,6 +2,7 @@ use crate::bar::{self, BarPlotKernel};
 use crate::hexbin::{self, HexbinPlotKernel};
 use crate::line::{self, LinePlotKernel};
 use crate::message::Message;
+use crate::pie::{self, PiePlotKernel};
 use crate::plot::{PlotKernel, PlotWidget};
 use crate::plot_core::PlotType;
 use crate::scatter::{self, ScatterPlotKernel};
@@ -106,6 +107,16 @@ fn create_plot(
 			let df = stacked_bar::generate_sample_stacked_bar_data();
 			let prepared = stacked_bar::prepare_stacked_bar_data(&df, "cat", "group", "val");
 			let kernel = StackedBarPlotKernel {
+				prepared_data: Arc::new(prepared),
+				image_cache: None,
+			};
+			let task = kernel.rasterize(width, height);
+			(Box::new(kernel), task)
+		}
+		PlotType::Pie => {
+			let df = pie::generate_sample_pie_data();
+			let prepared = pie::prepare_pie_data(&df, "cat", "val");
+			let kernel = PiePlotKernel {
 				prepared_data: Arc::new(prepared),
 				image_cache: None,
 			};
