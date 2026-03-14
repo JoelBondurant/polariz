@@ -8,6 +8,7 @@ mod pie;
 mod plot;
 mod plot_core;
 mod scatter;
+mod stacked_area;
 mod stacked_bar;
 mod state;
 mod violin;

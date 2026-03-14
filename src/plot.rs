@@ -30,8 +30,10 @@ impl<'a> CoordinateTransformer<'a> {
 
 	pub fn cartesian(&self, data_x: f32, data_y: f32) -> Point {
 		if let PlotLayout::Cartesian { x_range, y_range } = self.layout {
-			let x_scale = self.bounds.width / (x_range.1 - x_range.0);
-			let y_scale = self.bounds.height / (y_range.1 - y_range.0);
+			let x_delta = (x_range.1 - x_range.0).abs().max(f32::EPSILON);
+			let y_delta = (y_range.1 - y_range.0).abs().max(f32::EPSILON);
+			let x_scale = self.bounds.width / x_delta;
+			let y_scale = self.bounds.height / y_delta;
 			let pixel_x = self.bounds.x + ((data_x - x_range.0) * x_scale);
 			let pixel_y = self.bounds.y + self.bounds.height - ((data_y - y_range.0) * y_scale);
 			Point::new(pixel_x, pixel_y)
@@ -46,11 +48,12 @@ impl<'a> CoordinateTransformer<'a> {
 			y_range,
 		} = self.layout
 		{
-			let num_cats = categories.len() as f32;
+			let num_cats = categories.len().max(1) as f32;
 			let band_width = self.bounds.width / num_cats;
 			let center_x =
 				self.bounds.x + (category_index as f32 * band_width) + (band_width / 2.0);
-			let y_scale = self.bounds.height / (y_range.1 - y_range.0);
+			let y_delta = (y_range.1 - y_range.0).abs().max(f32::EPSILON);
+			let y_scale = self.bounds.height / y_delta;
 			let pixel_y = self.bounds.y + self.bounds.height - ((data_y - y_range.0) * y_scale);
 			(Point::new(center_x, pixel_y), band_width)
 		} else {
@@ -64,8 +67,10 @@ impl<'a> CoordinateTransformer<'a> {
 			if !self.bounds.contains(cursor_pos) {
 				return None;
 			}
-			let x_scale = (x_range.1 - x_range.0) / self.bounds.width;
-			let y_scale = (y_range.1 - y_range.0) / self.bounds.height;
+			let x_delta = (x_range.1 - x_range.0).abs().max(f32::EPSILON);
+			let y_delta = (y_range.1 - y_range.0).abs().max(f32::EPSILON);
+			let x_scale = x_delta / self.bounds.width;
+			let y_scale = y_delta / self.bounds.height;
 			let data_x = x_range.0 + ((cursor_pos.x - self.bounds.x) * x_scale);
 			let data_y =
 				y_range.0 + ((self.bounds.y + self.bounds.height - cursor_pos.y) * y_scale);
@@ -115,8 +120,8 @@ impl<'a> Program<Message> for PlotWidget<'a> {
 	) -> Vec<Geometry> {
 		let mut frame = Frame::new(renderer, bounds.size());
 		let padding_top = self.padding;
-		let padding_bottom = self.padding + 30.0; // More room for X labels
-		let padding_left = self.padding + 30.0; // More room for Y labels
+		let padding_bottom = self.padding + 30.0;
+		let padding_left = self.padding + 30.0;
 		let padding_right = self.padding;
 		let plot_area = Rectangle {
 			x: padding_left,

@@ -8,6 +8,7 @@ use crate::pie::{self, PiePlotKernel};
 use crate::plot::{PlotKernel, PlotWidget};
 use crate::plot_core::PlotType;
 use crate::scatter::{self, ScatterPlotKernel};
+use crate::stacked_area::{self, StackedAreaPlotKernel};
 use crate::stacked_bar::{self, StackedBarPlotKernel};
 use crate::violin::{self, ViolinPlotKernel};
 use iced::widget::{canvas, column, container, pick_list, row, text, tooltip, Tooltip};
@@ -139,6 +140,16 @@ fn create_plot(
 			let df = histogram::generate_sample_histogram_data();
 			let prepared = histogram::prepare_histogram_data(&df, "val", 50);
 			let kernel = HistogramPlotKernel {
+				prepared_data: Arc::new(prepared),
+				image_cache: None,
+			};
+			let task = kernel.rasterize(width, height);
+			(Box::new(kernel), task)
+		}
+		PlotType::StackedArea => {
+			let df = stacked_area::generate_sample_stacked_area_data();
+			let prepared = stacked_area::prepare_stacked_area_data(&df, "cat", "x", "y");
+			let kernel = StackedAreaPlotKernel {
 				prepared_data: Arc::new(prepared),
 				image_cache: None,
 			};

@@ -7,12 +7,13 @@ pub enum PlotType {
 	Line,
 	Pie,
 	Scatter,
+	StackedArea,
 	StackedBar,
 	Violin,
 }
 
 impl PlotType {
-	pub const ALL: [PlotType; 9] = [
+	pub const ALL: [PlotType; 10] = [
 		PlotType::Bar,
 		PlotType::BoxPlot,
 		PlotType::Hexbin,
@@ -20,6 +21,7 @@ impl PlotType {
 		PlotType::Line,
 		PlotType::Pie,
 		PlotType::Scatter,
+		PlotType::StackedArea,
 		PlotType::StackedBar,
 		PlotType::Violin,
 	];
@@ -35,6 +37,7 @@ impl std::fmt::Display for PlotType {
 			PlotType::Line => write!(f, "Line Plot"),
 			PlotType::Pie => write!(f, "Pie Plot"),
 			PlotType::Scatter => write!(f, "Scatter Plot"),
+			PlotType::StackedArea => write!(f, "Stacked Area Plot"),
 			PlotType::StackedBar => write!(f, "Stacked Bar Plot"),
 			PlotType::Violin => write!(f, "Violin Plot"),
 		}
