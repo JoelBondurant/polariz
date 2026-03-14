@@ -5,6 +5,7 @@ mod message;
 mod plot;
 mod plot_core;
 mod scatter;
+mod stacked_bar;
 mod state;
 mod violin;
 

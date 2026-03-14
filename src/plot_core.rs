@@ -4,15 +4,17 @@ pub enum PlotType {
 	Hexbin,
 	Line,
 	Scatter,
+	StackedBar,
 	Violin,
 }
 
 impl PlotType {
-	pub const ALL: [PlotType; 5] = [
+	pub const ALL: [PlotType; 6] = [
 		PlotType::Bar,
 		PlotType::Hexbin,
 		PlotType::Line,
 		PlotType::Scatter,
+		PlotType::StackedBar,
 		PlotType::Violin,
 	];
 }
@@ -24,6 +26,7 @@ impl std::fmt::Display for PlotType {
 			PlotType::Hexbin => write!(f, "Hexbin Plot"),
 			PlotType::Line => write!(f, "Line Plot"),
 			PlotType::Scatter => write!(f, "Scatter Plot"),
+			PlotType::StackedBar => write!(f, "Stacked Bar Plot"),
 			PlotType::Violin => write!(f, "Violin Plot"),
 		}
 	}

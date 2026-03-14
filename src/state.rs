@@ -5,6 +5,7 @@ use crate::message::Message;
 use crate::plot::{PlotKernel, PlotWidget};
 use crate::plot_core::PlotType;
 use crate::scatter::{self, ScatterPlotKernel};
+use crate::stacked_bar::{self, StackedBarPlotKernel};
 use crate::violin::{self, ViolinPlotKernel};
 use iced::widget::{canvas, column, container, pick_list, row, text, tooltip, Tooltip};
 use iced::{window, Element, Length, Size, Task};
@@ -95,6 +96,16 @@ fn create_plot(
 			let df = scatter::generate_sample_scatter_data();
 			let prepared = scatter::prepare_scatter_data(&df, "cat", "x", "y", 0.005);
 			let kernel = ScatterPlotKernel {
+				prepared_data: Arc::new(prepared),
+				image_cache: None,
+			};
+			let task = kernel.rasterize(width, height);
+			(Box::new(kernel), task)
+		}
+		PlotType::StackedBar => {
+			let df = stacked_bar::generate_sample_stacked_bar_data();
+			let prepared = stacked_bar::prepare_stacked_bar_data(&df, "cat", "group", "val");
+			let kernel = StackedBarPlotKernel {
 				prepared_data: Arc::new(prepared),
 				image_cache: None,
 			};
