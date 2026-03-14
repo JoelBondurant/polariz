@@ -9,6 +9,7 @@ An experimental project to develop an iced plotting component for Polariton.
 ![Line plot component.](https://github.com/JoelBondurant/polariz/blob/main/img/line_plot.png?raw=true)
 ![Scatter plot component.](https://github.com/JoelBondurant/polariz/blob/main/img/scatter_plot.png?raw=true)
 ![Pie plot component.](https://github.com/JoelBondurant/polariz/blob/main/img/pie_plot.png?raw=true)
+![Histogram plot component.](https://github.com/JoelBondurant/polariz/blob/main/img/histogram_plot.png?raw=true)
 ![Box plot component.](https://github.com/JoelBondurant/polariz/blob/main/img/box_plot.png?raw=true)
 ![Hexbin plot component.](https://github.com/JoelBondurant/polariz/blob/main/img/hexbin_plot.png?raw=true)
 ![Violin plot component.](https://github.com/JoelBondurant/polariz/blob/main/img/violin_plot.png?raw=true)

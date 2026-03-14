@@ -1,6 +1,7 @@
 use crate::bar::{self, BarPlotKernel};
 use crate::box_plot::{self, BoxPlotKernel};
 use crate::hexbin::{self, HexbinPlotKernel};
+use crate::histogram::{self, HistogramPlotKernel};
 use crate::line::{self, LinePlotKernel};
 use crate::message::Message;
 use crate::pie::{self, PiePlotKernel};
@@ -125,9 +126,19 @@ fn create_plot(
 			(Box::new(kernel), task)
 		}
 		PlotType::BoxPlot => {
-			let df = violin::generate_sample_data(); // Reuse violin sample data
+			let df = violin::generate_sample_data();
 			let prepared = box_plot::prepare_box_plot_data(&df, "group", "y", height);
 			let kernel = BoxPlotKernel {
+				prepared_data: Arc::new(prepared),
+				image_cache: None,
+			};
+			let task = kernel.rasterize(width, height);
+			(Box::new(kernel), task)
+		}
+		PlotType::Histogram => {
+			let df = histogram::generate_sample_histogram_data();
+			let prepared = histogram::prepare_histogram_data(&df, "val", 50);
+			let kernel = HistogramPlotKernel {
 				prepared_data: Arc::new(prepared),
 				image_cache: None,
 			};
