@@ -1,4 +1,5 @@
 mod bar;
+mod box_plot;
 mod hexbin;
 mod line;
 mod message;

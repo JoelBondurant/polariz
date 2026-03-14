@@ -1,4 +1,5 @@
 use crate::bar::{self, BarPlotKernel};
+use crate::box_plot::{self, BoxPlotKernel};
 use crate::hexbin::{self, HexbinPlotKernel};
 use crate::line::{self, LinePlotKernel};
 use crate::message::Message;
@@ -117,6 +118,16 @@ fn create_plot(
 			let df = pie::generate_sample_pie_data();
 			let prepared = pie::prepare_pie_data(&df, "cat", "val");
 			let kernel = PiePlotKernel {
+				prepared_data: Arc::new(prepared),
+				image_cache: None,
+			};
+			let task = kernel.rasterize(width, height);
+			(Box::new(kernel), task)
+		}
+		PlotType::BoxPlot => {
+			let df = violin::generate_sample_data(); // Reuse violin sample data
+			let prepared = box_plot::prepare_box_plot_data(&df, "group", "y", height);
+			let kernel = BoxPlotKernel {
 				prepared_data: Arc::new(prepared),
 				image_cache: None,
 			};

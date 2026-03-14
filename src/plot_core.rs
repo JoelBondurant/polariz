@@ -1,6 +1,7 @@
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum PlotType {
 	Bar,
+	BoxPlot,
 	Hexbin,
 	Line,
 	Pie,
@@ -10,8 +11,9 @@ pub enum PlotType {
 }
 
 impl PlotType {
-	pub const ALL: [PlotType; 7] = [
+	pub const ALL: [PlotType; 8] = [
 		PlotType::Bar,
+		PlotType::BoxPlot,
 		PlotType::Hexbin,
 		PlotType::Line,
 		PlotType::Pie,
@@ -25,6 +27,7 @@ impl std::fmt::Display for PlotType {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
 			PlotType::Bar => write!(f, "Bar Plot"),
+			PlotType::BoxPlot => write!(f, "Box Plot"),
 			PlotType::Hexbin => write!(f, "Hexbin Plot"),
 			PlotType::Line => write!(f, "Line Plot"),
 			PlotType::Pie => write!(f, "Pie Chart"),
