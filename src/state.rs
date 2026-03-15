@@ -82,7 +82,6 @@ fn create_plot(
 			let prepared = line::prepare_line_data(&df, "cat", "x", "y");
 			let kernel = LinePlotKernel {
 				prepared_data: Arc::new(prepared),
-				image_cache: None,
 			};
 			let task = kernel.rasterize(width, height);
 			(Box::new(kernel), task)

@@ -1,5 +1,6 @@
 mod bar;
 mod box_plot;
+mod colors;
 mod hexbin;
 mod histogram;
 mod line;

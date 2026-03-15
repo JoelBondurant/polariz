@@ -1,3 +1,4 @@
+use crate::colors;
 use crate::message::Message;
 use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout};
 use iced::advanced::mouse::Cursor;
@@ -90,14 +91,6 @@ pub struct ScatterPreparedData {
 	pub point_size: f32,
 }
 
-fn viridis(t: f32) -> [f32; 3] {
-	[
-		0.184455 + t*(0.107708 + t*(-0.327241 + t*(-4.599932 + t*(6.203736 + t*(4.751787 + t*-5.432077))))),
-		0.005768 + t*(1.39647 + t*(0.214814 + t*(-5.758238 + t*(14.153965 + t*(-13.749439 + t*4.641571))))),
-		0.267511 + t*(0.073383 + t*(15.657724 + t*(-90.25783 + t*(202.56079 + t*(-202.603 + t*74.394908))))),
-	]
-}
-
 pub fn prepare_scatter_data(df: &DataFrame, cat_col: &str, x_col: &str, y_col: &str, point_size: f32) -> ScatterPreparedData {
 	let x_col_series = df.column(x_col).unwrap().cast(&DataType::Float32).unwrap();
 	let y_col_series = df.column(y_col).unwrap().cast(&DataType::Float32).unwrap();
@@ -122,7 +115,7 @@ pub fn prepare_scatter_data(df: &DataFrame, cat_col: &str, x_col: &str, y_col: &
 		} else {
 			0.5
 		};
-		let color = viridis(t);
+		let color = colors::viridis(t);
 		for j in 0..group_df.height() {
 			let p = [xs.get(j).unwrap(), ys.get(j).unwrap()];
 			for _ in 0..6 {

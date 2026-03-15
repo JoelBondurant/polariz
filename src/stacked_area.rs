@@ -1,3 +1,4 @@
+use crate::colors;
 use crate::message::Message;
 use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout};
 use iced::advanced::mouse::Cursor;
@@ -116,14 +117,6 @@ pub struct StackedAreaPreparedData {
 	pub y_range: (f32, f32),
 }
 
-fn viridis(t: f32) -> [f32; 3] {
-	[
-		0.184455 + t*(0.107708 + t*(-0.327241 + t*(-4.599932 + t*(6.203736 + t*(4.751787 + t*-5.432077))))),
-		0.005768 + t*(1.396_47 + t*(0.214814 + t*(-5.758238 + t*(14.153965 + t*(-13.749439 + t*4.641571))))),
-		0.267511 + t*(0.073383 + t*(15.657724 + t*(-90.257_83 + t*(202.560_79 + t*(-202.603_1 + t*74.394908))))),
-	]
-}
-
 pub fn prepare_stacked_area_data(df: &DataFrame, cat_col: &str, x_col: &str, y_col: &str) -> StackedAreaPreparedData {
 	let categories_series = df.column(cat_col).unwrap().unique().unwrap().sort(Default::default()).unwrap();
 	let categories: Vec<String> = categories_series.as_materialized_series().iter().map(|v| {
@@ -183,7 +176,7 @@ pub fn prepare_stacked_area_data(df: &DataFrame, cat_col: &str, x_col: &str, y_c
 	let mut current_stacked_ys = vec![0.0f32; num_xs];
 	for (cat_idx, cat_val) in category_values.iter().enumerate() {
 		let t = if num_cats > 1 { cat_idx as f32 / (num_cats - 1) as f32 } else { 0.5 };
-		let c = viridis(t);
+		let c = colors::viridis(t);
 		let color = [c[0], c[1], c[2], 1.0];
 		for x_idx in 0..num_xs {
 			current_stacked_ys[x_idx] = prev_stacked_ys[x_idx] + cat_val[x_idx];

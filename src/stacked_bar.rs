@@ -1,3 +1,4 @@
+use crate::colors;
 use crate::message::Message;
 use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout};
 use iced::advanced::mouse::Cursor;
@@ -112,23 +113,6 @@ pub struct StackedBarPreparedData {
 	pub y_range: (f32, f32),
 }
 
-fn viridis(t: f32) -> [f32; 3] {
-	[
-		0.184455
-			+ t * (0.107708
-				+ t * (-0.327241
-					+ t * (-4.599932 + t * (6.203736 + t * (4.751787 + t * -5.432077))))),
-		0.005768
-			+ t * (1.39647
-				+ t * (0.214814
-					+ t * (-5.758238 + t * (14.153965 + t * (-13.749439 + t * 4.641571))))),
-		0.267511
-			+ t * (0.073383
-				+ t * (15.657724
-					+ t * (-90.25783 + t * (202.56079 + t * (-202.6031 + t * 74.394908))))),
-	]
-}
-
 pub fn prepare_stacked_bar_data(df: &DataFrame, cat_col: &str, group_col: &str, val_col: &str) -> StackedBarPreparedData {
 	let categories_series = df.column(cat_col).unwrap().unique().unwrap().sort(Default::default()).unwrap();
 	let categories: Vec<String> = categories_series.as_materialized_series().iter().map(|v| {
@@ -165,7 +149,7 @@ pub fn prepare_stacked_bar_data(df: &DataFrame, cat_col: &str, group_col: &str, 
 	let mut vertices = Vec::with_capacity(num_cats * num_groups * 6);
 	let group_colors: Vec<[f32; 3]> = (0..num_groups).map(|i| {
 		let t = if num_groups > 1 { i as f32 / (num_groups - 1) as f32 } else { 0.5 };
-		viridis(t)
+		colors::viridis(t)
 	}).collect();
 	let total_band_width = 2.0 / num_cats as f32;
 	let bar_width = total_band_width * 0.8;

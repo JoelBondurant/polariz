@@ -1,3 +1,4 @@
+use crate::colors;
 use crate::message::Message;
 use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout};
 use iced::advanced::mouse::Cursor;
@@ -122,23 +123,6 @@ pub struct BarPreparedData {
 	pub y_range: (f32, f32),
 }
 
-fn viridis(t: f32) -> [f32; 3] {
-	[
-		0.184455
-			+ t * (0.107708
-				+ t * (-0.327241
-					+ t * (-4.599932 + t * (6.203736 + t * (4.751787 + t * -5.432077))))),
-		0.005768
-			+ t * (1.39647
-				+ t * (0.214814
-					+ t * (-5.758238 + t * (14.153965 + t * (-13.749439 + t * 4.641571))))),
-		0.267511
-			+ t * (0.073383
-				+ t * (15.657724
-					+ t * (-90.25783 + t * (202.56079 + t * (-202.6031 + t * 74.394908))))),
-	]
-}
-
 pub fn prepare_bar_data(
 	df: &DataFrame,
 	cat_col: &str,
@@ -200,7 +184,7 @@ pub fn prepare_bar_data(
 			} else {
 				0.5
 			};
-			viridis(t)
+			colors::viridis(t)
 		})
 		.collect();
 	let total_band_width = 2.0 / num_cats as f32;
