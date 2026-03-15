@@ -4,6 +4,7 @@ use crate::hexbin::{self, HexbinPlotKernel};
 use crate::histogram::{self, HistogramPlotKernel};
 use crate::line::{self, LinePlotKernel};
 use crate::message::Message;
+use crate::parallel::{self, ParallelPlotKernel};
 use crate::pie::{self, PiePlotKernel};
 use crate::plot::{PlotKernel, PlotWidget};
 use crate::plot_core::PlotType;
@@ -152,6 +153,16 @@ fn create_plot(
 			let kernel = StackedAreaPlotKernel {
 				prepared_data: Arc::new(prepared),
 				image_cache: None,
+			};
+			let task = kernel.rasterize(width, height);
+			(Box::new(kernel), task)
+		}
+		PlotType::Parallel => {
+			let df = parallel::generate_sample_parallel_data();
+			let dims = vec!["Dim A".to_string(), "Dim B".to_string(), "Dim C".to_string(), "Dim D".to_string()];
+			let prepared = parallel::prepare_parallel_data(&df, &dims, "cat");
+			let kernel = ParallelPlotKernel {
+				prepared_data: Arc::new(prepared),
 			};
 			let task = kernel.rasterize(width, height);
 			(Box::new(kernel), task)

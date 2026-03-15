@@ -4,6 +4,7 @@ mod hexbin;
 mod histogram;
 mod line;
 mod message;
+mod parallel;
 mod pie;
 mod plot;
 mod plot_core;
