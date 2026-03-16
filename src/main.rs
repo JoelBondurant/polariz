@@ -4,6 +4,7 @@ mod bubble;
 mod colors;
 mod fill_between;
 mod funnel;
+mod heatmap;
 mod hexbin;
 mod histogram;
 mod line;

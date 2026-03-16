@@ -19,4 +19,5 @@ An experimental project to develop an iced plotting component for Polariton.
 ![Parallel coordinates plot component.](https://github.com/JoelBondurant/polariz/blob/main/img/parallel_coordinates_plot.png?raw=true)
 ![Box plot component.](https://github.com/JoelBondurant/polariz/blob/main/img/box_plot.png?raw=true)
 ![Violin plot component.](https://github.com/JoelBondurant/polariz/blob/main/img/violin_plot.png?raw=true)
+![Heatmap plot component.](https://github.com/JoelBondurant/polariz/blob/main/img/heatmap_plot.png?raw=true)
 ![Hexbin plot component.](https://github.com/JoelBondurant/polariz/blob/main/img/hexbin_plot.png?raw=true)

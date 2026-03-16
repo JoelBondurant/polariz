@@ -3,6 +3,7 @@ use crate::box_plot::{self, BoxPlotKernel};
 use crate::bubble::{self, BubblePlotKernel};
 use crate::fill_between::{self, FillBetweenPlotKernel};
 use crate::funnel::{self, FunnelPlotKernel};
+use crate::heatmap::{self, HeatmapPlotKernel};
 use crate::hexbin::{self, HexbinPlotKernel};
 use crate::histogram::{self, HistogramPlotKernel};
 use crate::line::{self, LinePlotKernel};
@@ -141,23 +142,31 @@ fn create_plot(plot_type: PlotType, width: u32, height: u32) -> Box<dyn PlotKern
 		}
 		PlotType::Bubble => {
 			let df = bubble::generate_sample_bubble_data();
-			let prepared = bubble::prepare_bubble_data(&df, "x", "y", "size", "color", Some("label"));
+			let prepared =
+				bubble::prepare_bubble_data(&df, "x", "y", "size", "color", Some("label"));
 			Box::new(BubblePlotKernel {
 				prepared_data: Arc::new(prepared),
 			})
 		}
 		PlotType::FillBetween => {
 			let df = fill_between::generate_sample_fill_between_data();
-			let prepared = fill_between::prepare_fill_between_data(&df, "x", "y_mid", "y_lower", "y_upper");
+			let prepared =
+				fill_between::prepare_fill_between_data(&df, "x", "y_mid", "y_lower", "y_upper");
 			Box::new(FillBetweenPlotKernel {
 				prepared_data: Arc::new(prepared),
 			})
 		}
 		PlotType::Funnel => {
-
 			let df = funnel::generate_sample_funnel_data();
 			let prepared = funnel::prepare_funnel_data(&df, "stage", "value");
 			Box::new(FunnelPlotKernel {
+				prepared_data: Arc::new(prepared),
+			})
+		}
+		PlotType::Heatmap => {
+			let df = heatmap::generate_sample_heatmap_data();
+			let prepared = heatmap::prepare_heatmap_data(&df, "x", "y", "val");
+			Box::new(HeatmapPlotKernel {
 				prepared_data: Arc::new(prepared),
 			})
 		}

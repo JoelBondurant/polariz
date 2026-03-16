@@ -19,6 +19,10 @@ pub enum PlotLayout {
 		categories: Vec<String>,
 		x_range: (f32, f32),
 	},
+	CategoricalXY {
+		x_categories: Vec<String>,
+		y_categories: Vec<String>,
+	},
 	Parallel {
 		dimensions: Vec<String>,
 		ranges: Vec<(f32, f32)>,
@@ -89,6 +93,24 @@ impl<'a> CoordinateTransformer<'a> {
 				(Point::new(axis_x, pixel_y), 0.0)
 			}
 			_ => (Point::ORIGIN, 0.0),
+		}
+	}
+
+	pub fn categorical_2d(&self, x_index: usize, y_index: usize) -> (Point, f32, f32) {
+		match self.layout {
+			PlotLayout::CategoricalXY {
+				x_categories,
+				y_categories,
+			} => {
+				let num_x = x_categories.len().max(1) as f32;
+				let num_y = y_categories.len().max(1) as f32;
+				let band_width = self.bounds.width / num_x;
+				let band_height = self.bounds.height / num_y;
+				let center_x = self.bounds.x + (x_index as f32 * band_width) + (band_width / 2.0);
+				let center_y = self.bounds.y + self.bounds.height - (y_index as f32 * band_height) - (band_height / 2.0);
+				(Point::new(center_x, center_y), band_width, band_height)
+			}
+			_ => (Point::ORIGIN, 0.0, 0.0),
 		}
 	}
 
@@ -205,6 +227,12 @@ impl<'a> Program<Message> for PlotWidget<'a> {
 				x_range,
 			} => {
 				self.draw_categorical_y_axes(&mut frame, plot_area, &transform, categories, *x_range);
+			}
+			PlotLayout::CategoricalXY {
+				x_categories,
+				y_categories,
+			} => {
+				self.draw_categorical_xy_axes(&mut frame, plot_area, &transform, x_categories, y_categories);
 			}
 			PlotLayout::Parallel { dimensions, ranges } => {
 				self.draw_parallel_axes(&mut frame, plot_area, &transform, dimensions, ranges);
@@ -519,6 +547,80 @@ impl<'a> PlotWidget<'a> {
 			frame.fill_text(Text {
 				content: cat.clone(),
 				position: Point::new(center_px.x - 10.0, center_px.y),
+				color: Color::WHITE,
+				size: iced::Pixels(18.0),
+				align_x: alignment::Horizontal::Right.into(),
+				align_y: alignment::Vertical::Center,
+				..Default::default()
+			});
+		}
+	}
+
+	fn draw_categorical_xy_axes(
+		&self,
+		frame: &mut Frame,
+		_area: Rectangle,
+		transform: &CoordinateTransformer,
+		x_categories: &[String],
+		y_categories: &[String],
+	) {
+		let halo_stroke = Stroke {
+			style: Style::Solid(Color::BLACK),
+			width: 4.0,
+			..Default::default()
+		};
+		let axis_stroke = Stroke {
+			style: Style::Solid(Color::WHITE),
+			width: 2.0,
+			..Default::default()
+		};
+
+		let axes_path = Path::new(|builder| {
+			let (first_p, _bw, bh) = transform.categorical_2d(0, 0);
+			let (last_p, bw, _bh) = transform.categorical_2d(x_categories.len() - 1, y_categories.len() - 1);
+			let left_x = first_p.x - bw / 2.0;
+			let bottom_y = first_p.y + bh / 2.0;
+			let right_x = last_p.x + bw / 2.0;
+			let top_y = last_p.y - bh / 2.0;
+
+			builder.move_to(Point::new(left_x, top_y));
+			builder.line_to(Point::new(left_x, bottom_y));
+			builder.line_to(Point::new(right_x, bottom_y));
+		});
+		frame.stroke(&axes_path, halo_stroke);
+		frame.stroke(&axes_path, axis_stroke);
+
+		for (i, cat) in x_categories.iter().enumerate() {
+			let (p, _bw, bh) = transform.categorical_2d(i, 0);
+			let tick_x = p.x;
+			let tick_y = p.y + bh / 2.0;
+			let tick_path = Path::new(|builder| {
+				builder.move_to(Point::new(tick_x, tick_y));
+				builder.line_to(Point::new(tick_x, tick_y + 5.0));
+			});
+			frame.stroke(&tick_path, axis_stroke);
+			frame.fill_text(Text {
+				content: cat.clone(),
+				position: Point::new(tick_x, tick_y + 10.0),
+				color: Color::WHITE,
+				size: iced::Pixels(18.0),
+				align_x: alignment::Horizontal::Center.into(),
+				..Default::default()
+			});
+		}
+
+		for (i, cat) in y_categories.iter().enumerate() {
+			let (p, bw, _bh) = transform.categorical_2d(0, i);
+			let tick_x = p.x - bw / 2.0;
+			let tick_y = p.y;
+			let tick_path = Path::new(|builder| {
+				builder.move_to(Point::new(tick_x, tick_y));
+				builder.line_to(Point::new(tick_x - 5.0, tick_y));
+			});
+			frame.stroke(&tick_path, axis_stroke);
+			frame.fill_text(Text {
+				content: cat.clone(),
+				position: Point::new(tick_x - 10.0, tick_y),
 				color: Color::WHITE,
 				size: iced::Pixels(18.0),
 				align_x: alignment::Horizontal::Right.into(),
