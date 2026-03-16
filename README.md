@@ -15,6 +15,7 @@ An experimental project to develop an iced plotting component for Polariton.
 ![Bubble plot component.](https://github.com/JoelBondurant/polariz/blob/main/img/bubble_plot.png?raw=true)
 ![Funnel plot component.](https://github.com/JoelBondurant/polariz/blob/main/img/funnel_plot.png?raw=true)
 ![Histogram plot component.](https://github.com/JoelBondurant/polariz/blob/main/img/histogram_plot.png?raw=true)
+![Fill between plot component.](https://github.com/JoelBondurant/polariz/blob/main/img/fill_between_plot.png?raw=true)
 ![Parallel coordinates plot component.](https://github.com/JoelBondurant/polariz/blob/main/img/parallel_coordinates_plot.png?raw=true)
 ![Box plot component.](https://github.com/JoelBondurant/polariz/blob/main/img/box_plot.png?raw=true)
 ![Violin plot component.](https://github.com/JoelBondurant/polariz/blob/main/img/violin_plot.png?raw=true)

@@ -4,6 +4,7 @@ pub enum PlotType {
 	HorizontalBar,
 	BoxPlot,
 	Bubble,
+	FillBetween,
 	Funnel,
 	Hexbin,
 	Histogram,
@@ -18,11 +19,12 @@ pub enum PlotType {
 }
 
 impl PlotType {
-	pub const ALL: [PlotType; 15] = [
+	pub const ALL: [PlotType; 16] = [
 		PlotType::Bar,
 		PlotType::HorizontalBar,
 		PlotType::BoxPlot,
 		PlotType::Bubble,
+		PlotType::FillBetween,
 		PlotType::Funnel,
 		PlotType::Hexbin,
 		PlotType::Histogram,
@@ -44,6 +46,7 @@ impl std::fmt::Display for PlotType {
 			PlotType::HorizontalBar => write!(f, "Horizontal Bar Plot"),
 			PlotType::BoxPlot => write!(f, "Box Plot"),
 			PlotType::Bubble => write!(f, "Bubble Plot"),
+			PlotType::FillBetween => write!(f, "Fill Between Plot"),
 			PlotType::Funnel => write!(f, "Funnel Plot"),
 			PlotType::Hexbin => write!(f, "Hexbin Plot"),
 			PlotType::Histogram => write!(f, "Histogram Plot"),

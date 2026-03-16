@@ -2,6 +2,7 @@ mod bar;
 mod box_plot;
 mod bubble;
 mod colors;
+mod fill_between;
 mod funnel;
 mod hexbin;
 mod histogram;
