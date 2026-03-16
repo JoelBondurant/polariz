@@ -1,5 +1,6 @@
 use crate::bar::{self, BarPlotKernel};
 use crate::box_plot::{self, BoxPlotKernel};
+use crate::bubble::{self, BubblePlotKernel};
 use crate::funnel::{self, FunnelPlotKernel};
 use crate::hexbin::{self, HexbinPlotKernel};
 use crate::histogram::{self, HistogramPlotKernel};
@@ -118,6 +119,13 @@ fn create_plot(plot_type: PlotType, width: u32, height: u32) -> Box<dyn PlotKern
 			let df = violin::generate_sample_data();
 			let prepared = box_plot::prepare_box_plot_data(&df, "group", "y");
 			Box::new(BoxPlotKernel {
+				prepared_data: Arc::new(prepared),
+			})
+		}
+		PlotType::Bubble => {
+			let df = bubble::generate_sample_bubble_data();
+			let prepared = bubble::prepare_bubble_data(&df, "x", "y", "size", "color", Some("label"));
+			Box::new(BubblePlotKernel {
 				prepared_data: Arc::new(prepared),
 			})
 		}
