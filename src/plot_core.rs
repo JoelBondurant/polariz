@@ -2,6 +2,7 @@
 pub enum PlotType {
 	Bar,
 	BoxPlot,
+	Funnel,
 	Hexbin,
 	Histogram,
 	Line,
@@ -14,9 +15,10 @@ pub enum PlotType {
 }
 
 impl PlotType {
-	pub const ALL: [PlotType; 11] = [
+	pub const ALL: [PlotType; 12] = [
 		PlotType::Bar,
 		PlotType::BoxPlot,
+		PlotType::Funnel,
 		PlotType::Hexbin,
 		PlotType::Histogram,
 		PlotType::Line,
@@ -34,6 +36,7 @@ impl std::fmt::Display for PlotType {
 		match self {
 			PlotType::Bar => write!(f, "Bar Plot"),
 			PlotType::BoxPlot => write!(f, "Box Plot"),
+			PlotType::Funnel => write!(f, "Funnel Plot"),
 			PlotType::Hexbin => write!(f, "Hexbin Plot"),
 			PlotType::Histogram => write!(f, "Histogram Plot"),
 			PlotType::Line => write!(f, "Line Plot"),

@@ -117,6 +117,49 @@ impl PlotKernel for ViolinPlotKernel {
 		}
 	}
 
+	fn draw_legend(&self, frame: &mut Frame, bounds: Rectangle, settings: crate::plot::LegendSettings) {
+		let num_cats = self.prepared_data.categories.len();
+		if num_cats == 0 { return; }
+		let max_rows = settings.max_rows.max(1) as usize;
+		let num_cols = num_cats.div_ceil(max_rows);
+		let actual_rows = num_cats.min(max_rows);
+		let item_height = 25.0;
+		let legend_padding = 10.0;
+		let rect_size = 15.0;
+		let col_width = 150.0;
+		let legend_width = num_cols as f32 * col_width + legend_padding * 2.0;
+		let legend_height = actual_rows as f32 * item_height + legend_padding * 2.0;
+		let x = bounds.x + (bounds.width - legend_width) * settings.position_x;
+		let y = bounds.y + (bounds.height - legend_height) * settings.position_y;
+		frame.fill_rectangle(
+			iced::Point::new(x, y),
+			iced::Size::new(legend_width, legend_height),
+			Color::from_rgba(0.0, 0.0, 0.0, 0.6)
+		);
+		for (i, name) in self.prepared_data.categories.iter().enumerate() {
+			let t = if num_cats > 1 { i as f32 / (num_cats - 1) as f32 } else { 0.5 };
+			let color = colors::viridis(t);
+			let col = i / max_rows;
+			let row = i % max_rows;
+			let item_x = x + legend_padding + col as f32 * col_width;
+			let item_y = y + legend_padding + row as f32 * item_height;
+			frame.fill_rectangle(
+				iced::Point::new(item_x, item_y + (item_height - rect_size) / 2.0),
+				iced::Size::new(rect_size, rect_size),
+				color
+			);
+			frame.fill_text(iced::widget::canvas::Text {
+				content: name.clone(),
+				position: iced::Point::new(item_x + rect_size + 10.0, item_y + item_height / 2.0),
+				color: Color::WHITE,
+				size: iced::Pixels(14.0),
+				align_x: iced::alignment::Horizontal::Left.into(),
+				align_y: iced::alignment::Vertical::Center,
+				..Default::default()
+			});
+		}
+	}
+
 	fn hover(&self, transform: &CoordinateTransformer, cursor: Cursor) -> Option<String> {
 		if let Some(cursor_pos) = cursor.position()
 			&& let PlotLayout::CategoricalX { categories, .. } = self.layout() {
@@ -220,7 +263,7 @@ pub fn prepare_violin_data(
 		ca.into_no_null_iter().map(|i| i.to_string()).collect()
 	} else {
 		categories_series.iter().map(|v| {
-			if let AnyValue::String(s) = v { s.to_string() } else { v.to_string() }
+			if let AnyValue::String(s) = v { s.to_string() } else { v.to_string().replace("\"", "") }
 		}).collect()
 	};
 	let tex_height_bins = 256;

@@ -70,10 +70,8 @@ impl PlotKernel for BoxPlotKernel {
 			let (min_px, _) = transform.categorical(i, stats.min);
 			let (max_px, _) = transform.categorical(i, stats.max);
 			let whiskers_path = Path::new(|builder| {
-				// Lower whisker
 				builder.move_to(iced::Point::new(center.x, min_px.y));
 				builder.line_to(iced::Point::new(center.x, q1_px.y));
-				// Upper whisker
 				builder.move_to(iced::Point::new(center.x, q3_px.y));
 				builder.line_to(iced::Point::new(center.x, max_px.y));
 			});
@@ -126,6 +124,49 @@ impl PlotKernel for BoxPlotKernel {
 		}
 		None
 	}
+
+	fn draw_legend(&self, frame: &mut Frame, bounds: Rectangle, settings: crate::plot::LegendSettings) {
+		let num_cats = self.prepared_data.categories.len();
+		if num_cats == 0 { return; }
+		let max_rows = settings.max_rows.max(1) as usize;
+		let num_cols = num_cats.div_ceil(max_rows);
+		let actual_rows = num_cats.min(max_rows);
+		let item_height = 25.0;
+		let legend_padding = 10.0;
+		let rect_size = 15.0;
+		let col_width = 150.0;
+		let legend_width = num_cols as f32 * col_width + legend_padding * 2.0;
+		let legend_height = actual_rows as f32 * item_height + legend_padding * 2.0;
+		let x = bounds.x + (bounds.width - legend_width) * settings.position_x;
+		let y = bounds.y + (bounds.height - legend_height) * settings.position_y;
+		frame.fill_rectangle(
+			iced::Point::new(x, y),
+			iced::Size::new(legend_width, legend_height),
+			Color::from_rgba(0.0, 0.0, 0.0, 0.6)
+		);
+		for (i, name) in self.prepared_data.categories.iter().enumerate() {
+			let t = if num_cats > 1 { i as f32 / (num_cats - 1) as f32 } else { 0.5 };
+			let color = colors::viridis(t);
+			let col = i / max_rows;
+			let row = i % max_rows;
+			let item_x = x + legend_padding + col as f32 * col_width;
+			let item_y = y + legend_padding + row as f32 * item_height;
+			frame.fill_rectangle(
+				iced::Point::new(item_x, item_y + (item_height - rect_size) / 2.0),
+				iced::Size::new(rect_size, rect_size),
+				color
+			);
+			frame.fill_text(iced::widget::canvas::Text {
+				content: name.clone(),
+				position: iced::Point::new(item_x + rect_size + 10.0, item_y + item_height / 2.0),
+				color: Color::WHITE,
+				size: iced::Pixels(14.0),
+				align_x: iced::alignment::Horizontal::Left.into(),
+				align_y: iced::alignment::Vertical::Center,
+				..Default::default()
+			});
+		}
+	}
 }
 
 pub struct BoxStats {
@@ -161,7 +202,7 @@ pub fn prepare_box_plot_data(
 			if let AnyValue::String(s) = v {
 				s.to_string()
 			} else {
-				v.to_string()
+				v.to_string().replace("\"", "")
 			}
 		})
 		.collect();

@@ -1,8 +1,8 @@
 use crate::colors;
 use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout};
 use iced::advanced::mouse::Cursor;
-use iced::widget::canvas::Frame;
-use iced::Rectangle;
+use iced::widget::canvas::{Frame, Text};
+use iced::{Color, Rectangle};
 use polars::prelude::*;
 use rand::RngExt;
 use std::sync::Arc;
@@ -49,7 +49,6 @@ impl PlotKernel for StackedBarPlotKernel {
 				let t = if num_groups > 1 { j as f32 / (num_groups - 1) as f32 } else { 0.5 };
 				let color = colors::viridis(t);
 				frame.fill_rectangle(bar_rect.position(), bar_rect.size(), color);
-				
 				current_y += val;
 			}
 		}
@@ -85,6 +84,49 @@ impl PlotKernel for StackedBarPlotKernel {
 		}
 		None
 	}
+
+	fn draw_legend(&self, frame: &mut Frame, bounds: Rectangle, settings: crate::plot::LegendSettings) {
+		let num_groups = self.prepared_data.group_names.len();
+		if num_groups == 0 { return; }
+		let max_rows = settings.max_rows.max(1) as usize;
+		let num_cols = num_groups.div_ceil(max_rows);
+		let actual_rows = num_groups.min(max_rows);
+		let item_height = 25.0;
+		let legend_padding = 10.0;
+		let rect_size = 15.0;
+		let col_width = 150.0;
+		let legend_width = num_cols as f32 * col_width + legend_padding * 2.0;
+		let legend_height = actual_rows as f32 * item_height + legend_padding * 2.0;
+		let x = bounds.x + (bounds.width - legend_width) * settings.position_x;
+		let y = bounds.y + (bounds.height - legend_height) * settings.position_y;
+		frame.fill_rectangle(
+			iced::Point::new(x, y),
+			iced::Size::new(legend_width, legend_height),
+			Color::from_rgba(0.0, 0.0, 0.0, 0.6)
+		);
+		for (i, name) in self.prepared_data.group_names.iter().enumerate() {
+			let t = if num_groups > 1 { i as f32 / (num_groups - 1) as f32 } else { 0.5 };
+			let color = colors::viridis(t);
+			let col = i / max_rows;
+			let row = i % max_rows;
+			let item_x = x + legend_padding + col as f32 * col_width;
+			let item_y = y + legend_padding + row as f32 * item_height;
+			frame.fill_rectangle(
+				iced::Point::new(item_x, item_y + (item_height - rect_size) / 2.0),
+				iced::Size::new(rect_size, rect_size),
+				color
+			);
+			frame.fill_text(Text {
+				content: name.clone(),
+				position: iced::Point::new(item_x + rect_size + 10.0, item_y + item_height / 2.0),
+				color: Color::WHITE,
+				size: iced::Pixels(14.0),
+				align_x: iced::alignment::Horizontal::Left.into(),
+				align_y: iced::alignment::Vertical::Center,
+				..Default::default()
+			});
+		}
+	}
 }
 
 pub struct StackedBarPreparedData {
@@ -97,12 +139,12 @@ pub struct StackedBarPreparedData {
 pub fn prepare_stacked_bar_data(df: &DataFrame, cat_col: &str, group_col: &str, val_col: &str) -> StackedBarPreparedData {
 	let categories_series = df.column(cat_col).unwrap().unique().unwrap().sort(Default::default()).unwrap();
 	let categories: Vec<String> = categories_series.as_materialized_series().iter().map(|v| {
-		if let AnyValue::String(s) = v { s.to_string() } else { v.to_string() }
+		if let AnyValue::String(s) = v { s.to_string() } else { v.to_string().replace("\"", "") }
 	}).collect();
 	let groups_series = df.column(group_col).unwrap().unique().unwrap().sort(Default::default()).unwrap();
 	let groups_series_mat = groups_series.as_materialized_series();
 	let group_names: Vec<String> = groups_series_mat.iter().map(|v| {
-		if let AnyValue::String(s) = v { s.to_string() } else { v.to_string() }
+		if let AnyValue::String(s) = v { s.to_string() } else { v.to_string().replace("\"", "") }
 	}).collect();
 	let group_idx_map: HashMap<AnyValue, usize> = groups_series_mat.iter().enumerate().map(|(i, v)| (v.into_static(), i)).collect();
 	let num_cats = categories.len();

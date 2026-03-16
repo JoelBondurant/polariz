@@ -95,6 +95,23 @@ impl<'a> CoordinateTransformer<'a> {
 	}
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct LegendSettings {
+	pub max_rows: u32,
+	pub position_x: f32,
+	pub position_y: f32,
+}
+
+impl Default for LegendSettings {
+	fn default() -> Self {
+		Self {
+			max_rows: 4,
+			position_x: 0.95,
+			position_y: 0.05,
+		}
+	}
+}
+
 pub trait PlotKernel {
 	fn layout(&self) -> PlotLayout;
 
@@ -106,6 +123,8 @@ pub trait PlotKernel {
 		cursor: Cursor,
 	);
 
+	fn draw_legend(&self, _frame: &mut Frame, _bounds: Rectangle, _settings: LegendSettings) {}
+
 	fn hover(&self, transform: &CoordinateTransformer, cursor: Cursor) -> Option<String>;
 }
 
@@ -113,6 +132,7 @@ pub struct PlotWidget<'a> {
 	pub kernel: &'a dyn PlotKernel,
 	pub title: String,
 	pub padding: f32,
+	pub legend_settings: LegendSettings,
 }
 
 impl<'a> Program<Message> for PlotWidget<'a> {
@@ -160,6 +180,8 @@ impl<'a> Program<Message> for PlotWidget<'a> {
 			}
 			PlotLayout::Radial => {}
 		}
+		self.kernel
+			.draw_legend(&mut frame, bounds, self.legend_settings);
 		frame.fill_text(Text {
 			content: self.title.clone(),
 			position: Point::new(bounds.width / 2.0, 20.0),

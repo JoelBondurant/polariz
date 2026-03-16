@@ -2,7 +2,7 @@ use crate::colors;
 use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{Frame, Path, Stroke, Style};
-use iced::Rectangle;
+use iced::{Color, Rectangle};
 use polars::prelude::*;
 use rand::RngExt;
 use std::sync::Arc;
@@ -57,6 +57,60 @@ impl PlotKernel for ParallelPlotKernel {
 		}
 	}
 
+	fn draw_legend(
+		&self,
+		frame: &mut Frame,
+		bounds: Rectangle,
+		settings: crate::plot::LegendSettings,
+	) {
+		let num_cats = self.prepared_data.category_names.len();
+		if num_cats == 0 {
+			return;
+		}
+		let max_rows = settings.max_rows.max(1) as usize;
+		let num_cols = num_cats.div_ceil(max_rows);
+		let actual_rows = num_cats.min(max_rows);
+		let item_height = 25.0;
+		let legend_padding = 10.0;
+		let rect_size = 15.0;
+		let col_width = 150.0;
+		let legend_width = num_cols as f32 * col_width + legend_padding * 2.0;
+		let legend_height = actual_rows as f32 * item_height + legend_padding * 2.0;
+		let x = bounds.x + (bounds.width - legend_width) * settings.position_x;
+		let y = bounds.y + (bounds.height - legend_height) * settings.position_y;
+		frame.fill_rectangle(
+			iced::Point::new(x, y),
+			iced::Size::new(legend_width, legend_height),
+			Color::from_rgba(0.0, 0.0, 0.0, 0.6),
+		);
+		for (i, name) in self.prepared_data.category_names.iter().enumerate() {
+			let t = if num_cats > 1 {
+				i as f32 / (num_cats - 1) as f32
+			} else {
+				0.5
+			};
+			let color = colors::viridis(t);
+			let col = i / max_rows;
+			let row = i % max_rows;
+			let item_x = x + legend_padding + col as f32 * col_width;
+			let item_y = y + legend_padding + row as f32 * item_height;
+			frame.fill_rectangle(
+				iced::Point::new(item_x, item_y + (item_height - rect_size) / 2.0),
+				iced::Size::new(rect_size, rect_size),
+				color,
+			);
+			frame.fill_text(iced::widget::canvas::Text {
+				content: name.clone(),
+				position: iced::Point::new(item_x + rect_size + 10.0, item_y + item_height / 2.0),
+				color: Color::WHITE,
+				size: iced::Pixels(14.0),
+				align_x: iced::alignment::Horizontal::Left.into(),
+				align_y: iced::alignment::Vertical::Center,
+				..Default::default()
+			});
+		}
+	}
+
 	fn hover(&self, transform: &CoordinateTransformer, cursor: Cursor) -> Option<String> {
 		if let Some(cursor_pos) = cursor.position() {
 			let num_dims = self.prepared_data.dimensions.len();
@@ -83,6 +137,7 @@ pub struct ParallelPreparedData {
 	pub ranges: Vec<(f32, f32)>,
 	pub data_matrix: Vec<Vec<f32>>,
 	pub row_categories: Vec<usize>,
+	pub category_names: Vec<String>,
 	pub num_categories: usize,
 }
 
@@ -111,9 +166,16 @@ pub fn prepare_parallel_data(
 		.unwrap();
 	let categories_mat = categories_series.as_materialized_series();
 	let num_cats = categories_mat.len();
+	let mut category_names = Vec::with_capacity(num_cats);
 	let mut cat_to_idx = std::collections::HashMap::new();
 	for (i, v) in categories_mat.iter().enumerate() {
-		cat_to_idx.insert(v.to_string(), i);
+		let s = if let AnyValue::String(s) = v {
+			s.to_string()
+		} else {
+			v.to_string().replace("\"", "")
+		};
+		category_names.push(s.clone());
+		cat_to_idx.insert(s, i);
 	}
 	let cat_vals = df.column(cat_col).unwrap();
 	let num_rows = df.height();
@@ -126,14 +188,20 @@ pub fn prepare_parallel_data(
 		}
 		data_matrix.push(row);
 
-		let cat_val = cat_vals.get(i).unwrap().to_string();
-		row_categories.push(cat_to_idx.get(&cat_val).copied().unwrap_or(0));
+		let cat_val_raw = cat_vals.get(i).unwrap();
+		let cat_val_str = if let AnyValue::String(s) = cat_val_raw {
+			s.to_string()
+		} else {
+			cat_val_raw.to_string().replace("\"", "")
+		};
+		row_categories.push(*cat_to_idx.get(&cat_val_str).unwrap_or(&0));
 	}
 	ParallelPreparedData {
 		dimensions: dims.to_vec(),
 		ranges,
 		data_matrix,
 		row_categories,
+		category_names,
 		num_categories: num_cats,
 	}
 }

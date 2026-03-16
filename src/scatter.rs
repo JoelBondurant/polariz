@@ -2,7 +2,7 @@ use crate::colors;
 use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{Frame, Path};
-use iced::Rectangle;
+use iced::{Color, Rectangle};
 use polars::prelude::*;
 use rand::RngExt;
 use std::sync::Arc;
@@ -38,6 +38,48 @@ impl PlotKernel for ScatterPlotKernel {
 		}
 	}
 
+	fn draw_legend(&self, frame: &mut Frame, bounds: Rectangle, settings: crate::plot::LegendSettings) {
+		let num_series = self.prepared_data.series.len();
+		if num_series == 0 { return; }
+		let max_rows = settings.max_rows.max(1) as usize;
+		let num_cols = num_series.div_ceil(max_rows);
+		let actual_rows = num_series.min(max_rows);
+		let item_height = 25.0;
+		let legend_padding = 10.0;
+		let swatch_size = 12.0;
+		let col_width = 150.0;
+		let legend_width = num_cols as f32 * col_width + legend_padding * 2.0;
+		let legend_height = actual_rows as f32 * item_height + legend_padding * 2.0;
+		let x = bounds.x + (bounds.width - legend_width) * settings.position_x;
+		let y = bounds.y + (bounds.height - legend_height) * settings.position_y;
+		frame.fill_rectangle(
+			iced::Point::new(x, y),
+			iced::Size::new(legend_width, legend_height),
+			Color::from_rgba(0.0, 0.0, 0.0, 0.6)
+		);
+		for (i, series) in self.prepared_data.series.iter().enumerate() {
+			let color = colors::viridis(series.color_t);
+			let col = i / max_rows;
+			let row = i % max_rows;
+			let item_x = x + legend_padding + col as f32 * col_width;
+			let item_y = y + legend_padding + row as f32 * item_height;
+			let dot_path = Path::circle(
+				iced::Point::new(item_x + swatch_size / 2.0, item_y + item_height / 2.0),
+				swatch_size / 2.0
+			);
+			frame.fill(&dot_path, color);
+			frame.fill_text(iced::widget::canvas::Text {
+				content: series.name.clone(),
+				position: iced::Point::new(item_x + swatch_size + 10.0, item_y + item_height / 2.0),
+				color: Color::WHITE,
+				size: iced::Pixels(14.0),
+				align_x: iced::alignment::Horizontal::Left.into(),
+				align_y: iced::alignment::Vertical::Center,
+				..Default::default()
+			});
+		}
+	}
+
 	fn hover(&self, transform: &CoordinateTransformer, cursor: Cursor) -> Option<String> {
 		if let Some(cursor_pos) = cursor.position()
 			&& let Some((x, y)) = transform.pixel_to_cartesian(cursor_pos) {
@@ -48,6 +90,7 @@ impl PlotKernel for ScatterPlotKernel {
 }
 
 pub struct ScatterSeries {
+	pub name: String,
 	pub points: Vec<[f32; 2]>,
 	pub color_t: f32,
 }
@@ -74,6 +117,12 @@ pub fn prepare_scatter_data(df: &DataFrame, cat_col: &str, x_col: &str, y_col: &
 	let num_partitions = partitions.len();
 	let mut series_list = Vec::with_capacity(num_partitions);
 	for (i, group_df) in partitions.into_iter().enumerate() {
+		let cat_val = group_df.column(cat_col).unwrap().get(0).unwrap();
+		let cat_name = if let AnyValue::String(s) = cat_val {
+			s.to_string()
+		} else {
+			cat_val.to_string().replace("\"", "")
+		};
 		let xs_col = group_df.column(x_col).unwrap().cast(&DataType::Float32).unwrap();
 		let ys_col = group_df.column(y_col).unwrap().cast(&DataType::Float32).unwrap();
 		let xs = xs_col.f32().unwrap();
@@ -87,8 +136,9 @@ pub fn prepare_scatter_data(df: &DataFrame, cat_col: &str, x_col: &str, y_col: &
 		for j in 0..group_df.height() {
 			points.push([xs.get(j).unwrap(), ys.get(j).unwrap()]);
 		}
-		series_list.push(ScatterSeries { points, color_t: t });
+		series_list.push(ScatterSeries { name: cat_name, points, color_t: t });
 	}
+
 	ScatterPreparedData {
 		series: series_list,
 		x_range,

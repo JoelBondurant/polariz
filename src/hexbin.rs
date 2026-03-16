@@ -62,6 +62,70 @@ impl PlotKernel for HexbinPlotKernel {
 		});
 	}
 
+	fn draw_legend(&self, frame: &mut Frame, bounds: Rectangle, settings: crate::plot::LegendSettings) {
+		let max_count = self.prepared_data.max_count;
+		let legend_width = 60.0;
+		let legend_height = 200.0;
+		let legend_padding = 10.0;
+		let x = bounds.x + (bounds.width - legend_width) * settings.position_x;
+		let y = bounds.y + (bounds.height - legend_height) * settings.position_y;
+		frame.fill_rectangle(
+			iced::Point::new(x, y),
+			iced::Size::new(legend_width, legend_height),
+			Color::from_rgba(0.0, 0.0, 0.0, 0.6)
+		);
+		let bar_width = 15.0;
+		let bar_height = legend_height - 55.0;
+		let bar_x = x + legend_padding;
+		let bar_y = y + 35.0;
+		let steps = 50;
+		for i in 0..steps {
+			let t = i as f32 / (steps - 1) as f32;
+			let color = colors::viridis(t);
+			let step_height = bar_height / steps as f32;
+			let step_y = bar_y + bar_height - (i as f32 + 1.0) * step_height;
+			frame.fill_rectangle(
+				iced::Point::new(bar_x, step_y),
+				iced::Size::new(bar_width, step_height + 0.5), // small overlap to avoid gaps
+				color
+			);
+		}
+		frame.stroke(
+			&Path::rectangle(iced::Point::new(bar_x, bar_y), iced::Size::new(bar_width, bar_height)),
+			Stroke {
+				style: Style::Solid(Color::WHITE),
+				width: 1.0,
+				..Default::default()
+			}
+		);
+		let label_x = bar_x + bar_width + 5.0;
+		frame.fill_text(iced::widget::canvas::Text {
+			content: format!("{}", max_count),
+			position: iced::Point::new(label_x, bar_y),
+			color: Color::WHITE,
+			size: iced::Pixels(12.0),
+			align_y: iced::alignment::Vertical::Top,
+			..Default::default()
+		});
+		frame.fill_text(iced::widget::canvas::Text {
+			content: "0".to_string(),
+			position: iced::Point::new(label_x, bar_y + bar_height),
+			color: Color::WHITE,
+			size: iced::Pixels(12.0),
+			align_y: iced::alignment::Vertical::Bottom,
+			..Default::default()
+		});
+		frame.fill_text(iced::widget::canvas::Text {
+			content: "Count".to_string(),
+			position: iced::Point::new(x + legend_width / 2.0, y + 10.0),
+			color: Color::WHITE,
+			size: iced::Pixels(16.0),
+			align_x: iced::alignment::Horizontal::Center.into(),
+			align_y: iced::alignment::Vertical::Top,
+			..Default::default()
+		});
+	}
+
 	fn hover(&self, transform: &CoordinateTransformer, cursor: Cursor) -> Option<String> {
 		if let Some(cursor_pos) = cursor.position()
 			&& let Some((x, y)) = transform.pixel_to_cartesian(cursor_pos) {

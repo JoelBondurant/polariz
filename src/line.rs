@@ -54,6 +54,53 @@ impl PlotKernel for LinePlotKernel {
 		}
 		None
 	}
+
+	fn draw_legend(&self, frame: &mut Frame, bounds: Rectangle, settings: crate::plot::LegendSettings) {
+		let num_series = self.prepared_data.series.len();
+		if num_series == 0 { return; }
+		let max_rows = settings.max_rows.max(1) as usize;
+		let num_cols = num_series.div_ceil(max_rows);
+		let actual_rows = num_series.min(max_rows);
+		let item_height = 25.0;
+		let legend_padding = 10.0;
+		let line_width = 20.0;
+		let col_width = 150.0;
+		let legend_width = num_cols as f32 * col_width + legend_padding * 2.0;
+		let legend_height = actual_rows as f32 * item_height + legend_padding * 2.0;
+		let x = bounds.x + (bounds.width - legend_width) * settings.position_x;
+		let y = bounds.y + (bounds.height - legend_height) * settings.position_y;
+		frame.fill_rectangle(
+			iced::Point::new(x, y),
+			iced::Size::new(legend_width, legend_height),
+			iced::Color::from_rgba(0.0, 0.0, 0.0, 0.6)
+		);
+		for (i, series) in self.prepared_data.series.iter().enumerate() {
+			let color = colors::viridis(series.color_t);
+			let col = i / max_rows;
+			let row = i % max_rows;
+			let item_x = x + legend_padding + col as f32 * col_width;
+			let item_y = y + legend_padding + row as f32 * item_height;
+			let stroke = Stroke {
+				style: Style::Solid(color),
+				width: 3.0,
+				..Default::default()
+			};
+			let line_path = Path::new(|builder| {
+				builder.move_to(iced::Point::new(item_x, item_y + item_height / 2.0));
+				builder.line_to(iced::Point::new(item_x + line_width, item_y + item_height / 2.0));
+			});
+			frame.stroke(&line_path, stroke);
+			frame.fill_text(iced::widget::canvas::Text {
+				content: series.name.clone(),
+				position: iced::Point::new(item_x + line_width + 10.0, item_y + item_height / 2.0),
+				color: iced::Color::WHITE,
+				size: iced::Pixels(14.0),
+				align_x: iced::alignment::Horizontal::Left.into(),
+				align_y: iced::alignment::Vertical::Center,
+				..Default::default()
+			});
+		}
+	}
 }
 
 #[allow(dead_code)]
@@ -91,7 +138,12 @@ pub fn prepare_line_data(
 	let partitions = df.partition_by([cat_col], true).unwrap();
 	let num_partitions = partitions.len();
 	for (i, group_df) in partitions.into_iter().enumerate() {
-		let cat_name = group_df.column(cat_col).unwrap().get(0).unwrap().to_string();
+		let cat_val = group_df.column(cat_col).unwrap().get(0).unwrap();
+		let cat_name = if let AnyValue::String(s) = cat_val {
+			s.to_string()
+		} else {
+			cat_val.to_string().replace("\"", "")
+		};
 		let xs_col = group_df.column(x_col).unwrap().cast(&DataType::Float32).unwrap();
 		let ys_col = group_df.column(y_col).unwrap().cast(&DataType::Float32).unwrap();
 		let xs = xs_col.f32().unwrap();

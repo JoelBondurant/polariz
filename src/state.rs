@@ -1,18 +1,21 @@
 use crate::bar::{self, BarPlotKernel};
 use crate::box_plot::{self, BoxPlotKernel};
+use crate::funnel::{self, FunnelPlotKernel};
 use crate::hexbin::{self, HexbinPlotKernel};
 use crate::histogram::{self, HistogramPlotKernel};
 use crate::line::{self, LinePlotKernel};
 use crate::message::Message;
 use crate::parallel::{self, ParallelPlotKernel};
 use crate::pie::{self, PiePlotKernel};
-use crate::plot::{PlotKernel, PlotWidget};
+use crate::plot::{LegendSettings, PlotKernel, PlotWidget};
 use crate::plot_core::PlotType;
 use crate::scatter::{self, ScatterPlotKernel};
 use crate::stacked_area::{self, StackedAreaPlotKernel};
 use crate::stacked_bar::{self, StackedBarPlotKernel};
 use crate::violin::{self, ViolinPlotKernel};
-use iced::widget::{canvas, column, container, pick_list, row, text, tooltip, Tooltip};
+use iced::widget::{
+	canvas, column, container, pick_list, row, text, text_input, tooltip, Tooltip,
+};
 use iced::{window, Element, Length, Size, Task};
 use std::sync::Arc;
 
@@ -25,6 +28,10 @@ struct AppState {
 	current_plot_type: PlotType,
 	#[allow(dead_code)]
 	current_size: (u32, u32),
+	legend_settings: LegendSettings,
+	max_rows_input: String,
+	legend_x_input: String,
+	legend_y_input: String,
 }
 
 pub type Result = iced::Result;
@@ -42,20 +49,21 @@ pub fn run() -> Result {
 fn new() -> (AppState, Task<Message>) {
 	let plot_type = PlotType::Bar;
 	let kernel = create_plot(plot_type, WIDTH, HEIGHT);
+	let legend_settings = LegendSettings::default();
 	let state = AppState {
 		kernel,
 		hovered_info: None,
 		current_plot_type: plot_type,
 		current_size: (WIDTH, HEIGHT),
+		legend_settings,
+		max_rows_input: legend_settings.max_rows.to_string(),
+		legend_x_input: legend_settings.position_x.to_string(),
+		legend_y_input: legend_settings.position_y.to_string(),
 	};
 	(state, Task::none())
 }
 
-fn create_plot(
-	plot_type: PlotType,
-	width: u32,
-	height: u32,
-) -> Box<dyn PlotKernel> {
+fn create_plot(plot_type: PlotType, width: u32, height: u32) -> Box<dyn PlotKernel> {
 	match plot_type {
 		PlotType::Violin => {
 			let df = violin::generate_sample_data();
@@ -113,6 +121,13 @@ fn create_plot(
 				prepared_data: Arc::new(prepared),
 			})
 		}
+		PlotType::Funnel => {
+			let df = funnel::generate_sample_funnel_data();
+			let prepared = funnel::prepare_funnel_data(&df, "stage", "value");
+			Box::new(FunnelPlotKernel {
+				prepared_data: Arc::new(prepared),
+			})
+		}
 		PlotType::Histogram => {
 			let df = histogram::generate_sample_histogram_data();
 			let prepared = histogram::prepare_histogram_data(&df, "val", 50);
@@ -129,7 +144,12 @@ fn create_plot(
 		}
 		PlotType::Parallel => {
 			let df = parallel::generate_sample_parallel_data();
-			let dims = vec!["Dim A".to_string(), "Dim B".to_string(), "Dim C".to_string(), "Dim D".to_string()];
+			let dims = vec![
+				"Dim A".to_string(),
+				"Dim B".to_string(),
+				"Dim C".to_string(),
+				"Dim D".to_string(),
+			];
 			let prepared = parallel::prepare_parallel_data(&df, &dims, "cat");
 			Box::new(ParallelPlotKernel {
 				prepared_data: Arc::new(prepared),
@@ -153,6 +173,21 @@ fn update(state: &mut AppState, message: Message) -> Task<Message> {
 			}
 			Task::none()
 		}
+		Message::SetMaxLegendRows(rows) => {
+			state.legend_settings.max_rows = rows;
+			state.max_rows_input = rows.to_string();
+			Task::none()
+		}
+		Message::SetLegendX(x) => {
+			state.legend_settings.position_x = x.clamp(0.0, 1.0);
+			state.legend_x_input = x.to_string();
+			Task::none()
+		}
+		Message::SetLegendY(y) => {
+			state.legend_settings.position_y = y.clamp(0.0, 1.0);
+			state.legend_y_input = y.to_string();
+			Task::none()
+		}
 	}
 }
 
@@ -161,31 +196,31 @@ fn view(state: &AppState) -> Element<'_, Message> {
 		kernel: state.kernel.as_ref(),
 		title: state.current_plot_type.to_string(),
 		padding: 50.0,
+		legend_settings: state.legend_settings,
 	})
 	.width(Length::Fill)
 	.height(Length::Fill);
 	let plot_content: Element<_> = if let Some(info) = &state.hovered_info {
 		Tooltip::new(
 			canvas_widget,
-			container(text(info))
-				.padding(5)
-				.style(|_| container::Style {
-					background: Some(iced::Background::Color(iced::Color::from_rgba(
-						0.001, 0.001, 0.001, 0.85,
-					))),
-					border: iced::Border {
-						color: iced::Color::from_rgba(1.0, 1.0, 1.0, 0.2),
-						width: 1.0,
-						radius: 2.0.into(),
-					},
-					..Default::default()
-				}),
+			container(text(info)).padding(5).style(|_| container::Style {
+				background: Some(iced::Background::Color(iced::Color::from_rgba(
+					0.001, 0.001, 0.001, 0.85,
+				))),
+				border: iced::Border {
+					color: iced::Color::from_rgba(1.0, 1.0, 1.0, 0.2),
+					width: 1.0,
+					radius: 2.0.into(),
+				},
+				..Default::default()
+			}),
 			tooltip::Position::FollowCursor,
 		)
 		.into()
 	} else {
 		canvas_widget.into()
 	};
+
 	let controls = row![
 		text("Plot Type:"),
 		pick_list(
@@ -193,10 +228,43 @@ fn view(state: &AppState) -> Element<'_, Message> {
 			Some(state.current_plot_type),
 			Message::ChangePlotType
 		),
+		text("Legend Rows:"),
+		text_input("", &state.max_rows_input)
+			.on_input(|s| {
+				if let Ok(rows) = s.parse::<u32>() {
+					Message::SetMaxLegendRows(rows)
+				} else if s.is_empty() {
+					Message::SetMaxLegendRows(0)
+				} else {
+					Message::UpdateHover(state.hovered_info.clone()) // No-op message
+				}
+			})
+			.width(50),
+		text("X:"),
+		text_input("", &state.legend_x_input)
+			.on_input(|s| {
+				if let Ok(x) = s.parse::<f32>() {
+					Message::SetLegendX(x)
+				} else {
+					Message::UpdateHover(state.hovered_info.clone())
+				}
+			})
+			.width(60),
+		text("Y:"),
+		text_input("", &state.legend_y_input)
+			.on_input(|s| {
+				if let Ok(y) = s.parse::<f32>() {
+					Message::SetLegendY(y)
+				} else {
+					Message::UpdateHover(state.hovered_info.clone())
+				}
+			})
+			.width(60),
 	]
 	.spacing(10)
 	.padding(5)
 	.align_y(iced::Alignment::Center);
+
 	container(
 		column![controls, plot_content]
 			.width(Length::Fill)

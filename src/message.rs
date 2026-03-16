@@ -4,4 +4,7 @@ use crate::plot_core::PlotType;
 pub enum Message {
 	UpdateHover(Option<String>),
 	ChangePlotType(PlotType),
+	SetMaxLegendRows(u32),
+	SetLegendX(f32),
+	SetLegendY(f32),
 }
