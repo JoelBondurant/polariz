@@ -175,6 +175,14 @@ impl PlotKernel for ViolinPlotKernel {
 		}
 		None
 	}
+
+	fn x_label(&self) -> String {
+		self.prepared_data.x_label.clone()
+	}
+
+	fn y_label(&self) -> String {
+		self.prepared_data.y_label.clone()
+	}
 }
 
 pub struct ViolinPreparedData {
@@ -183,6 +191,8 @@ pub struct ViolinPreparedData {
 	pub medians: Vec<f32>,
 	pub kde_data: Vec<f32>, // [violin_idx * tex_height_bins + bin_idx]
 	pub tex_height_bins: usize,
+	pub x_label: String,
+	pub y_label: String,
 }
 
 fn compute_kde(
@@ -285,6 +295,8 @@ pub fn prepare_violin_data(
 		medians,
 		kde_data,
 		tex_height_bins,
+		x_label: cat_col.to_string(),
+		y_label: val_col.to_string(),
 	}
 }
 

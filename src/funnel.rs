@@ -14,6 +14,8 @@ pub struct FunnelPreparedData {
 	pub stages: Vec<String>,
 	pub values: Vec<f32>,
 	pub total_max: f32,
+	pub x_label: String,
+	pub y_label: String,
 }
 
 impl PlotKernel for FunnelPlotKernel {
@@ -170,6 +172,14 @@ impl PlotKernel for FunnelPlotKernel {
 		}
 		None
 	}
+
+	fn x_label(&self) -> String {
+		self.prepared_data.x_label.clone()
+	}
+
+	fn y_label(&self) -> String {
+		self.prepared_data.y_label.clone()
+	}
 }
 
 pub fn prepare_funnel_data(df: &DataFrame, stage_col: &str, val_col: &str) -> FunnelPreparedData {
@@ -196,6 +206,8 @@ pub fn prepare_funnel_data(df: &DataFrame, stage_col: &str, val_col: &str) -> Fu
 		stages,
 		values,
 		total_max,
+		x_label: stage_col.to_string(),
+		y_label: val_col.to_string(),
 	}
 }
 

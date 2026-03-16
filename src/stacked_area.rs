@@ -138,6 +138,14 @@ impl PlotKernel for StackedAreaPlotKernel {
 			});
 		}
 	}
+
+	fn x_label(&self) -> String {
+		self.prepared_data.x_label.clone()
+	}
+
+	fn y_label(&self) -> String {
+		self.prepared_data.y_label.clone()
+	}
 }
 
 pub struct StackedAreaPreparedData {
@@ -146,6 +154,8 @@ pub struct StackedAreaPreparedData {
 	pub category_values: Vec<Vec<f32>>,
 	pub x_range: (f32, f32),
 	pub y_range: (f32, f32),
+	pub x_label: String,
+	pub y_label: String,
 }
 
 pub fn prepare_stacked_area_data(df: &DataFrame, cat_col: &str, x_col: &str, y_col: &str) -> StackedAreaPreparedData {
@@ -165,6 +175,8 @@ pub fn prepare_stacked_area_data(df: &DataFrame, cat_col: &str, x_col: &str, y_c
 			category_values: Vec::new(),
 			x_range: (0.0, 1.0),
 			y_range: (0.0, 1.0),
+			x_label: x_col.to_string(),
+			y_label: y_col.to_string(),
 		};
 	}
 	let aggregated = df.clone().lazy()
@@ -207,6 +219,8 @@ pub fn prepare_stacked_area_data(df: &DataFrame, cat_col: &str, x_col: &str, y_c
 		category_values,
 		x_range,
 		y_range,
+		x_label: x_col.to_string(),
+		y_label: y_col.to_string(),
 	}
 }
 

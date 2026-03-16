@@ -126,6 +126,14 @@ pub trait PlotKernel {
 	fn draw_legend(&self, _frame: &mut Frame, _bounds: Rectangle, _settings: LegendSettings) {}
 
 	fn hover(&self, transform: &CoordinateTransformer, cursor: Cursor) -> Option<String>;
+
+	fn x_label(&self) -> String {
+		String::new()
+	}
+
+	fn y_label(&self) -> String {
+		String::new()
+	}
 }
 
 pub struct PlotWidget<'a> {
@@ -148,9 +156,9 @@ impl<'a> Program<Message> for PlotWidget<'a> {
 	) -> Vec<Geometry> {
 		let mut frame = Frame::new(renderer, bounds.size());
 		let padding_top = self.padding + 50.0;
-		let padding_bottom = self.padding + 40.0;
-		let padding_left = self.padding + 40.0;
-		let padding_right = self.padding;
+		let padding_bottom = self.padding + 60.0;
+		let padding_left = self.padding + 100.0;
+		let padding_right = self.padding + 20.0;
 		let plot_area = Rectangle {
 			x: padding_left,
 			y: padding_top,
@@ -191,6 +199,40 @@ impl<'a> Program<Message> for PlotWidget<'a> {
 			align_y: alignment::Vertical::Top,
 			..Default::default()
 		});
+		let x_label = self.kernel.x_label();
+		let y_label = self.kernel.y_label();
+		if !x_label.is_empty() {
+			frame.fill_text(Text {
+				content: x_label,
+				position: Point::new(
+					plot_area.x + plot_area.width / 2.0,
+					plot_area.y + plot_area.height + 45.0,
+				),
+				color: Color::WHITE,
+				size: iced::Pixels(20.0),
+				align_x: alignment::Horizontal::Center.into(),
+				align_y: alignment::Vertical::Top,
+				..Default::default()
+			});
+		}
+		if !y_label.is_empty() {
+			frame.with_save(|frame| {
+				frame.translate(iced::Vector::new(
+					plot_area.x - 85.0,
+					plot_area.y + plot_area.height / 2.0,
+				));
+				frame.rotate(-std::f32::consts::FRAC_PI_2);
+				frame.fill_text(Text {
+					content: y_label,
+					position: Point::ORIGIN,
+					color: Color::WHITE,
+					size: iced::Pixels(20.0),
+					align_x: alignment::Horizontal::Center.into(),
+					align_y: alignment::Vertical::Bottom,
+					..Default::default()
+				});
+			});
+		}
 		vec![frame.into_geometry()]
 	}
 
@@ -203,9 +245,9 @@ impl<'a> Program<Message> for PlotWidget<'a> {
 	) -> Option<canvas::Action<Message>> {
 		if let Event::Mouse(iced::mouse::Event::CursorMoved { .. }) = event {
 			let padding_top = self.padding + 50.0;
-			let padding_bottom = self.padding + 40.0;
-			let padding_left = self.padding + 40.0;
-			let padding_right = self.padding;
+			let padding_bottom = self.padding + 60.0;
+			let padding_left = self.padding + 100.0;
+			let padding_right = self.padding + 20.0;
 			let plot_area = Rectangle {
 				x: padding_left,
 				y: padding_top,

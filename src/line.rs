@@ -101,6 +101,14 @@ impl PlotKernel for LinePlotKernel {
 			});
 		}
 	}
+
+	fn x_label(&self) -> String {
+		self.prepared_data.x_label.clone()
+	}
+
+	fn y_label(&self) -> String {
+		self.prepared_data.y_label.clone()
+	}
 }
 
 #[allow(dead_code)]
@@ -114,6 +122,8 @@ pub struct LinePreparedData {
 	pub series: Vec<SeriesData>,
 	pub x_range: (f32, f32),
 	pub y_range: (f32, f32),
+	pub x_label: String,
+	pub y_label: String,
 }
 
 pub fn prepare_line_data(
@@ -167,6 +177,8 @@ pub fn prepare_line_data(
 		series: series_list,
 		x_range,
 		y_range,
+		x_label: x_col.to_string(),
+		y_label: y_col.to_string(),
 	}
 }
 

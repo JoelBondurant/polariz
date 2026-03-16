@@ -130,6 +130,14 @@ impl PlotKernel for ParallelPlotKernel {
 		}
 		None
 	}
+
+	fn x_label(&self) -> String {
+		"Dimension".to_string()
+	}
+
+	fn y_label(&self) -> String {
+		"Value".to_string()
+	}
 }
 
 pub struct ParallelPreparedData {

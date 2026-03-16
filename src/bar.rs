@@ -136,6 +136,13 @@ impl PlotKernel for BarPlotKernel {
 		}
 	}
 
+	fn x_label(&self) -> String {
+		self.prepared_data.x_label.clone()
+	}
+
+	fn y_label(&self) -> String {
+		self.prepared_data.y_label.clone()
+	}
 }
 
 pub struct BarPreparedData {
@@ -143,6 +150,8 @@ pub struct BarPreparedData {
 	pub group_names: Vec<String>,
 	pub values: Vec<Vec<f32>>,
 	pub y_range: (f32, f32),
+	pub x_label: String,
+	pub y_label: String,
 }
 
 pub fn prepare_bar_data(
@@ -214,6 +223,8 @@ pub fn prepare_bar_data(
 		group_names,
 		values,
 		y_range,
+		x_label: cat_col.to_string(),
+		y_label: val_col.to_string(),
 	}
 }
 

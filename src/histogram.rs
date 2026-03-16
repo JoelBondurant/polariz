@@ -141,6 +141,14 @@ impl PlotKernel for HistogramPlotKernel {
 		}
 		None
 	}
+
+	fn x_label(&self) -> String {
+		self.prepared_data.x_label.clone()
+	}
+
+	fn y_label(&self) -> String {
+		self.prepared_data.y_label.clone()
+	}
 }
 
 pub struct HistogramPreparedData {
@@ -148,6 +156,8 @@ pub struct HistogramPreparedData {
 	pub x_range: (f32, f32),
 	pub y_range: (f32, f32),
 	pub max_count: u32,
+	pub x_label: String,
+	pub y_label: String,
 }
 
 pub fn prepare_histogram_data(df: &DataFrame, val_col: &str, num_bins: usize) -> HistogramPreparedData {
@@ -176,6 +186,8 @@ pub fn prepare_histogram_data(df: &DataFrame, val_col: &str, num_bins: usize) ->
 		x_range,
 		y_range,
 		max_count: actual_max,
+		x_label: val_col.to_string(),
+		y_label: "Frequency".to_string(),
 	}
 }
 

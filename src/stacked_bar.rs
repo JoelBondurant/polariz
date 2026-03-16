@@ -127,6 +127,14 @@ impl PlotKernel for StackedBarPlotKernel {
 			});
 		}
 	}
+
+	fn x_label(&self) -> String {
+		self.prepared_data.x_label.clone()
+	}
+
+	fn y_label(&self) -> String {
+		self.prepared_data.y_label.clone()
+	}
 }
 
 pub struct StackedBarPreparedData {
@@ -134,6 +142,8 @@ pub struct StackedBarPreparedData {
 	pub group_names: Vec<String>,
 	pub category_values: Vec<Vec<f32>>, // For hover detection
 	pub y_range: (f32, f32),
+	pub x_label: String,
+	pub y_label: String,
 }
 
 pub fn prepare_stacked_bar_data(df: &DataFrame, cat_col: &str, group_col: &str, val_col: &str) -> StackedBarPreparedData {
@@ -174,6 +184,8 @@ pub fn prepare_stacked_bar_data(df: &DataFrame, cat_col: &str, group_col: &str, 
 		group_names,
 		category_values,
 		y_range,
+		x_label: cat_col.to_string(),
+		y_label: val_col.to_string(),
 	}
 }
 
