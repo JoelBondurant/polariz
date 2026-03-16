@@ -1,6 +1,7 @@
 use crate::bar::{self, BarPlotKernel};
 use crate::box_plot::{self, BoxPlotKernel};
 use crate::bubble::{self, BubblePlotKernel};
+use crate::candlestick::{self, CandlestickPlotKernel};
 use crate::fill_between::{self, FillBetweenPlotKernel};
 use crate::funnel::{self, FunnelPlotKernel};
 use crate::heatmap::{self, HeatmapPlotKernel};
@@ -145,6 +146,14 @@ fn create_plot(plot_type: PlotType, width: u32, height: u32) -> Box<dyn PlotKern
 			let prepared =
 				bubble::prepare_bubble_data(&df, "x", "y", "size", "color", Some("label"));
 			Box::new(BubblePlotKernel {
+				prepared_data: Arc::new(prepared),
+			})
+		}
+		PlotType::Candlestick => {
+			let df = candlestick::generate_sample_candlestick_data();
+			let prepared =
+				candlestick::prepare_candlestick_data(&df, "x", "open", "high", "low", "close");
+			Box::new(CandlestickPlotKernel {
 				prepared_data: Arc::new(prepared),
 			})
 		}

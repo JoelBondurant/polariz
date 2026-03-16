@@ -1,6 +1,7 @@
 mod bar;
 mod box_plot;
 mod bubble;
+mod candlestick;
 mod colors;
 mod fill_between;
 mod funnel;
