@@ -14,9 +14,7 @@ use crate::scatter::{self, ScatterPlotKernel};
 use crate::stacked_area::{self, StackedAreaPlotKernel};
 use crate::stacked_bar::{self, StackedBarPlotKernel};
 use crate::violin::{self, ViolinPlotKernel};
-use iced::widget::{
-	canvas, column, container, pick_list, row, text, text_input, tooltip, Tooltip,
-};
+use iced::widget::{canvas, column, container, pick_list, row, text, text_input, tooltip, Tooltip};
 use iced::{window, Element, Length, Size, Task};
 use std::sync::Arc;
 
@@ -92,6 +90,15 @@ fn create_plot(plot_type: PlotType, width: u32, height: u32) -> Box<dyn PlotKern
 			let prepared = bar::prepare_bar_data(&df, "cat", "group", "val");
 			Box::new(BarPlotKernel {
 				prepared_data: Arc::new(prepared),
+				orientation: bar::Orientation::Vertical,
+			})
+		}
+		PlotType::HorizontalBar => {
+			let df = bar::generate_sample_bar_data();
+			let prepared = bar::prepare_bar_data(&df, "cat", "group", "val");
+			Box::new(BarPlotKernel {
+				prepared_data: Arc::new(prepared),
+				orientation: bar::Orientation::Horizontal,
 			})
 		}
 		PlotType::Scatter => {
@@ -106,6 +113,15 @@ fn create_plot(plot_type: PlotType, width: u32, height: u32) -> Box<dyn PlotKern
 			let prepared = stacked_bar::prepare_stacked_bar_data(&df, "cat", "group", "val");
 			Box::new(StackedBarPlotKernel {
 				prepared_data: Arc::new(prepared),
+				orientation: bar::Orientation::Vertical,
+			})
+		}
+		PlotType::HorizontalStackedBar => {
+			let df = stacked_bar::generate_sample_stacked_bar_data();
+			let prepared = stacked_bar::prepare_stacked_bar_data(&df, "cat", "group", "val");
+			Box::new(StackedBarPlotKernel {
+				prepared_data: Arc::new(prepared),
+				orientation: bar::Orientation::Horizontal,
 			})
 		}
 		PlotType::Pie => {
@@ -124,7 +140,8 @@ fn create_plot(plot_type: PlotType, width: u32, height: u32) -> Box<dyn PlotKern
 		}
 		PlotType::Bubble => {
 			let df = bubble::generate_sample_bubble_data();
-			let prepared = bubble::prepare_bubble_data(&df, "x", "y", "size", "color", Some("label"));
+			let prepared =
+				bubble::prepare_bubble_data(&df, "x", "y", "size", "color", Some("label"));
 			Box::new(BubblePlotKernel {
 				prepared_data: Arc::new(prepared),
 			})
@@ -211,24 +228,25 @@ fn view(state: &AppState) -> Element<'_, Message> {
 	let plot_content: Element<_> = if let Some(info) = &state.hovered_info {
 		Tooltip::new(
 			canvas_widget,
-			container(text(info)).padding(5).style(|_| container::Style {
-				background: Some(iced::Background::Color(iced::Color::from_rgba(
-					0.001, 0.001, 0.001, 0.85,
-				))),
-				border: iced::Border {
-					color: iced::Color::from_rgba(1.0, 1.0, 1.0, 0.2),
-					width: 1.0,
-					radius: 2.0.into(),
-				},
-				..Default::default()
-			}),
+			container(text(info))
+				.padding(5)
+				.style(|_| container::Style {
+					background: Some(iced::Background::Color(iced::Color::from_rgba(
+						0.001, 0.001, 0.001, 0.85,
+					))),
+					border: iced::Border {
+						color: iced::Color::from_rgba(1.0, 1.0, 1.0, 0.2),
+						width: 1.0,
+						radius: 2.0.into(),
+					},
+					..Default::default()
+				}),
 			tooltip::Position::FollowCursor,
 		)
 		.into()
 	} else {
 		canvas_widget.into()
 	};
-
 	let controls = row![
 		text("Plot Type:"),
 		pick_list(
@@ -272,7 +290,6 @@ fn view(state: &AppState) -> Element<'_, Message> {
 	.spacing(10)
 	.padding(5)
 	.align_y(iced::Alignment::Center);
-
 	container(
 		column![controls, plot_content]
 			.width(Length::Fill)

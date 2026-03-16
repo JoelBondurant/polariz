@@ -15,6 +15,10 @@ pub enum PlotLayout {
 		categories: Vec<String>,
 		y_range: (f32, f32),
 	},
+	CategoricalY {
+		categories: Vec<String>,
+		x_range: (f32, f32),
+	},
 	Parallel {
 		dimensions: Vec<String>,
 		ranges: Vec<(f32, f32)>,
@@ -46,7 +50,7 @@ impl<'a> CoordinateTransformer<'a> {
 		}
 	}
 
-	pub fn categorical(&self, category_index: usize, data_y: f32) -> (Point, f32) {
+	pub fn categorical(&self, category_index: usize, data_val: f32) -> (Point, f32) {
 		match self.layout {
 			PlotLayout::CategoricalX {
 				categories,
@@ -58,8 +62,21 @@ impl<'a> CoordinateTransformer<'a> {
 					self.bounds.x + (category_index as f32 * band_width) + (band_width / 2.0);
 				let y_delta = (y_range.1 - y_range.0).abs().max(f32::EPSILON);
 				let y_scale = self.bounds.height / y_delta;
-				let pixel_y = self.bounds.y + self.bounds.height - ((data_y - y_range.0) * y_scale);
+				let pixel_y = self.bounds.y + self.bounds.height - ((data_val - y_range.0) * y_scale);
 				(Point::new(center_x, pixel_y), band_width)
+			}
+			PlotLayout::CategoricalY {
+				categories,
+				x_range,
+			} => {
+				let num_cats = categories.len().max(1) as f32;
+				let band_height = self.bounds.height / num_cats;
+				let center_y =
+					self.bounds.y + self.bounds.height - (category_index as f32 * band_height) - (band_height / 2.0);
+				let x_delta = (x_range.1 - x_range.0).abs().max(f32::EPSILON);
+				let x_scale = self.bounds.width / x_delta;
+				let pixel_x = self.bounds.x + ((data_val - x_range.0) * x_scale);
+				(Point::new(pixel_x, center_y), band_height)
 			}
 			PlotLayout::Parallel { dimensions, ranges } => {
 				let num_dims = dimensions.len().max(1) as f32;
@@ -68,7 +85,7 @@ impl<'a> CoordinateTransformer<'a> {
 				let range = ranges.get(category_index).copied().unwrap_or((0.0, 1.0));
 				let y_delta = (range.1 - range.0).abs().max(f32::EPSILON);
 				let y_scale = self.bounds.height / y_delta;
-				let pixel_y = self.bounds.y + self.bounds.height - ((data_y - range.0) * y_scale);
+				let pixel_y = self.bounds.y + self.bounds.height - ((data_val - range.0) * y_scale);
 				(Point::new(axis_x, pixel_y), 0.0)
 			}
 			_ => (Point::ORIGIN, 0.0),
@@ -182,6 +199,12 @@ impl<'a> Program<Message> for PlotWidget<'a> {
 				y_range,
 			} => {
 				self.draw_categorical_axes(&mut frame, plot_area, &transform, categories, *y_range);
+			}
+			PlotLayout::CategoricalY {
+				categories,
+				x_range,
+			} => {
+				self.draw_categorical_y_axes(&mut frame, plot_area, &transform, categories, *x_range);
 			}
 			PlotLayout::Parallel { dimensions, ranges } => {
 				self.draw_parallel_axes(&mut frame, plot_area, &transform, dimensions, ranges);
@@ -426,6 +449,80 @@ impl<'a> PlotWidget<'a> {
 				color: Color::WHITE,
 				size: iced::Pixels(18.0),
 				align_x: alignment::Horizontal::Center.into(),
+				..Default::default()
+			});
+		}
+	}
+
+	fn draw_categorical_y_axes(
+		&self,
+		frame: &mut Frame,
+		_area: Rectangle,
+		transform: &CoordinateTransformer,
+		categories: &[String],
+		x_range: (f32, f32),
+	) {
+		let halo_stroke = Stroke {
+			style: Style::Solid(Color::BLACK),
+			width: 4.0,
+			..Default::default()
+		};
+		let axis_stroke = Stroke {
+			style: Style::Solid(Color::WHITE),
+			width: 2.0,
+			..Default::default()
+		};
+		let num_ticks = 8;
+		let axes_path = Path::new(|builder| {
+			let (first_cat_center, band_height) = transform.categorical(0, x_range.0);
+			let bottom_edge = first_cat_center.y + (band_height / 2.0);
+			let left_x = first_cat_center.x;
+			let (last_cat_center, _) = transform.categorical(categories.len() - 1, x_range.1);
+			let top_edge = last_cat_center.y - (band_height / 2.0);
+			let right_x = last_cat_center.x;
+
+			builder.move_to(Point::new(left_x, top_edge));
+			builder.line_to(Point::new(left_x, bottom_edge));
+			builder.line_to(Point::new(right_x, bottom_edge));
+		});
+		frame.stroke(&axes_path, halo_stroke);
+		frame.stroke(&axes_path, axis_stroke);
+
+		for i in 0..=num_ticks {
+			let t = i as f32 / num_ticks as f32;
+			let data_x = x_range.0 + (x_range.1 - x_range.0) * t;
+			let (center, band_height) = transform.categorical(0, data_x);
+			let bottom_edge = center.y + (band_height / 2.0);
+			let p_bottom = Point::new(center.x, bottom_edge);
+			let tick_path = Path::new(|builder| {
+				builder.move_to(p_bottom);
+				builder.line_to(Point::new(p_bottom.x, p_bottom.y + 5.0));
+			});
+			frame.stroke(&tick_path, axis_stroke);
+			frame.fill_text(Text {
+				content: format!("{:.1}", data_x),
+				position: Point::new(p_bottom.x, p_bottom.y + 10.0),
+				color: Color::WHITE,
+				size: iced::Pixels(18.0),
+				align_x: alignment::Horizontal::Center.into(),
+				..Default::default()
+			});
+		}
+
+		for (i, cat) in categories.iter().enumerate() {
+			let (center_px, _band_height) = transform.categorical(i, x_range.0);
+			let tick_path = Path::new(|builder| {
+				builder.move_to(center_px);
+				builder.line_to(Point::new(center_px.x - 5.0, center_px.y));
+			});
+			frame.stroke(&tick_path, axis_stroke);
+			frame.fill_text(Text {
+				content: cat.clone(),
+				position: Point::new(center_px.x - 10.0, center_px.y),
+				color: Color::WHITE,
+				size: iced::Pixels(18.0),
+				align_x: alignment::Horizontal::Right.into(),
+				align_y: alignment::Vertical::Center,
 				..Default::default()
 			});
 		}
