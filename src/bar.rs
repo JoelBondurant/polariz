@@ -250,11 +250,17 @@ impl PlotKernel for BarPlotKernel {
 	}
 
 	fn x_label(&self) -> String {
-		self.prepared_data.x_label.clone()
+		match self.orientation {
+			Orientation::Vertical => self.prepared_data.x_label.clone(),
+			Orientation::Horizontal => self.prepared_data.y_label.clone(),
+		}
 	}
 
 	fn y_label(&self) -> String {
-		self.prepared_data.y_label.clone()
+		match self.orientation {
+			Orientation::Vertical => self.prepared_data.y_label.clone(),
+			Orientation::Horizontal => self.prepared_data.x_label.clone(),
+		}
 	}
 }
 
