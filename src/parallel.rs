@@ -1,9 +1,8 @@
 use crate::colors;
-use crate::message::Message;
 use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{Frame, Path, Stroke, Style};
-use iced::{Rectangle, Task};
+use iced::Rectangle;
 use polars::prelude::*;
 use rand::RngExt;
 use std::sync::Arc;
@@ -20,15 +19,7 @@ impl PlotKernel for ParallelPlotKernel {
 		}
 	}
 
-	fn draw_raster(
-		&self,
-		_frame: &mut Frame,
-		_bounds: Rectangle,
-		_transform: &CoordinateTransformer,
-	) {
-	}
-
-	fn draw_overlay(
+	fn plot(
 		&self,
 		frame: &mut Frame,
 		_bounds: Rectangle,
@@ -48,7 +39,7 @@ impl PlotKernel for ParallelPlotKernel {
 			};
 			let color = colors::viridis(t);
 			let stroke = Stroke {
-				style: Style::Solid(color.into()),
+				style: Style::Solid(color),
 				width: 1.5,
 				..Default::default()
 			};
@@ -85,16 +76,6 @@ impl PlotKernel for ParallelPlotKernel {
 		}
 		None
 	}
-
-	fn rasterize(&self, width: u32, height: u32) -> Task<Message> {
-		Task::done(Message::RasterizationResult(
-			width,
-			height,
-			vec![0; (width * height * 4) as usize],
-		))
-	}
-
-	fn update_raster(&mut self, _width: u32, _height: u32, _pixels: Vec<u8>) {}
 }
 
 pub struct ParallelPreparedData {

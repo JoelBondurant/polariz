@@ -41,140 +41,105 @@ pub fn run() -> Result {
 
 fn new() -> (AppState, Task<Message>) {
 	let plot_type = PlotType::Bar;
-	let (kernel, task) = create_plot(plot_type, WIDTH, HEIGHT);
+	let kernel = create_plot(plot_type, WIDTH, HEIGHT);
 	let state = AppState {
 		kernel,
 		hovered_info: None,
 		current_plot_type: plot_type,
 		current_size: (WIDTH, HEIGHT),
 	};
-	(state, task)
+	(state, Task::none())
 }
 
 fn create_plot(
 	plot_type: PlotType,
 	width: u32,
 	height: u32,
-) -> (Box<dyn PlotKernel>, Task<Message>) {
+) -> Box<dyn PlotKernel> {
 	match plot_type {
 		PlotType::Violin => {
 			let df = violin::generate_sample_data();
 			let prepared = violin::prepare_violin_data(&df, "group", "y", None);
-			let kernel = ViolinPlotKernel {
+			Box::new(ViolinPlotKernel {
 				prepared_data: Arc::new(prepared),
-				image_cache: None,
-			};
-			let task = kernel.rasterize(width, height);
-			(Box::new(kernel), task)
+			})
 		}
 		PlotType::Hexbin => {
 			let df = hexbin::generate_sample_hex_data(width, height);
 			let prepared = hexbin::prepare_hexbin_data(&df, 0.02);
-			let kernel = HexbinPlotKernel {
+			Box::new(HexbinPlotKernel {
 				prepared_data: Arc::new(prepared),
-				image_cache: None,
-			};
-			let task = kernel.rasterize(width, height);
-			(Box::new(kernel), task)
+			})
 		}
 		PlotType::Line => {
 			let df = line::generate_sample_line_data();
 			let prepared = line::prepare_line_data(&df, "cat", "x", "y");
-			let kernel = LinePlotKernel {
+			Box::new(LinePlotKernel {
 				prepared_data: Arc::new(prepared),
-			};
-			let task = kernel.rasterize(width, height);
-			(Box::new(kernel), task)
+			})
 		}
 		PlotType::Bar => {
 			let df = bar::generate_sample_bar_data();
 			let prepared = bar::prepare_bar_data(&df, "cat", "group", "val");
-			let kernel = BarPlotKernel {
+			Box::new(BarPlotKernel {
 				prepared_data: Arc::new(prepared),
-				image_cache: None,
-			};
-			let task = kernel.rasterize(width, height);
-			(Box::new(kernel), task)
+			})
 		}
 		PlotType::Scatter => {
 			let df = scatter::generate_sample_scatter_data();
-			let prepared = scatter::prepare_scatter_data(&df, "cat", "x", "y", 0.005);
-			let kernel = ScatterPlotKernel {
+			let prepared = scatter::prepare_scatter_data(&df, "cat", "x", "y", 3.0);
+			Box::new(ScatterPlotKernel {
 				prepared_data: Arc::new(prepared),
-				image_cache: None,
-			};
-			let task = kernel.rasterize(width, height);
-			(Box::new(kernel), task)
+			})
 		}
 		PlotType::StackedBar => {
 			let df = stacked_bar::generate_sample_stacked_bar_data();
 			let prepared = stacked_bar::prepare_stacked_bar_data(&df, "cat", "group", "val");
-			let kernel = StackedBarPlotKernel {
+			Box::new(StackedBarPlotKernel {
 				prepared_data: Arc::new(prepared),
-				image_cache: None,
-			};
-			let task = kernel.rasterize(width, height);
-			(Box::new(kernel), task)
+			})
 		}
 		PlotType::Pie => {
 			let df = pie::generate_sample_pie_data();
 			let prepared = pie::prepare_pie_data(&df, "cat", "val");
-			let kernel = PiePlotKernel {
+			Box::new(PiePlotKernel {
 				prepared_data: Arc::new(prepared),
-				image_cache: None,
-			};
-			let task = kernel.rasterize(width, height);
-			(Box::new(kernel), task)
+			})
 		}
 		PlotType::BoxPlot => {
 			let df = violin::generate_sample_data();
-			let prepared = box_plot::prepare_box_plot_data(&df, "group", "y", height);
-			let kernel = BoxPlotKernel {
+			let prepared = box_plot::prepare_box_plot_data(&df, "group", "y");
+			Box::new(BoxPlotKernel {
 				prepared_data: Arc::new(prepared),
-				image_cache: None,
-			};
-			let task = kernel.rasterize(width, height);
-			(Box::new(kernel), task)
+			})
 		}
 		PlotType::Histogram => {
 			let df = histogram::generate_sample_histogram_data();
 			let prepared = histogram::prepare_histogram_data(&df, "val", 50);
-			let kernel = HistogramPlotKernel {
+			Box::new(HistogramPlotKernel {
 				prepared_data: Arc::new(prepared),
-				image_cache: None,
-			};
-			let task = kernel.rasterize(width, height);
-			(Box::new(kernel), task)
+			})
 		}
 		PlotType::StackedArea => {
 			let df = stacked_area::generate_sample_stacked_area_data();
 			let prepared = stacked_area::prepare_stacked_area_data(&df, "cat", "x", "y");
-			let kernel = StackedAreaPlotKernel {
+			Box::new(StackedAreaPlotKernel {
 				prepared_data: Arc::new(prepared),
-				image_cache: None,
-			};
-			let task = kernel.rasterize(width, height);
-			(Box::new(kernel), task)
+			})
 		}
 		PlotType::Parallel => {
 			let df = parallel::generate_sample_parallel_data();
 			let dims = vec!["Dim A".to_string(), "Dim B".to_string(), "Dim C".to_string(), "Dim D".to_string()];
 			let prepared = parallel::prepare_parallel_data(&df, &dims, "cat");
-			let kernel = ParallelPlotKernel {
+			Box::new(ParallelPlotKernel {
 				prepared_data: Arc::new(prepared),
-			};
-			let task = kernel.rasterize(width, height);
-			(Box::new(kernel), task)
+			})
 		}
 	}
 }
 
 fn update(state: &mut AppState, message: Message) -> Task<Message> {
 	match message {
-		Message::RasterizationResult(w, h, pixels) => {
-			state.kernel.update_raster(w, h, pixels);
-			Task::none()
-		}
 		Message::UpdateHover(hover) => {
 			state.hovered_info = hover;
 			Task::none()
@@ -182,10 +147,9 @@ fn update(state: &mut AppState, message: Message) -> Task<Message> {
 		Message::ChangePlotType(new_type) => {
 			if new_type != state.current_plot_type {
 				state.current_plot_type = new_type;
-				let (new_kernel, task) = create_plot(new_type, WIDTH, HEIGHT);
+				let new_kernel = create_plot(new_type, WIDTH, HEIGHT);
 				state.kernel = new_kernel;
 				state.hovered_info = None;
-				return task;
 			}
 			Task::none()
 		}
@@ -201,7 +165,24 @@ fn view(state: &AppState) -> Element<'_, Message> {
 	.width(Length::Fill)
 	.height(Length::Fill);
 	let plot_content: Element<_> = if let Some(info) = &state.hovered_info {
-		Tooltip::new(canvas_widget, text(info), tooltip::Position::FollowCursor).into()
+		Tooltip::new(
+			canvas_widget,
+			container(text(info))
+				.padding(5)
+				.style(|_| container::Style {
+					background: Some(iced::Background::Color(iced::Color::from_rgba(
+						0.001, 0.001, 0.001, 0.85,
+					))),
+					border: iced::Border {
+						color: iced::Color::from_rgba(1.0, 1.0, 1.0, 0.2),
+						width: 1.0,
+						radius: 2.0.into(),
+					},
+					..Default::default()
+				}),
+			tooltip::Position::FollowCursor,
+		)
+		.into()
 	} else {
 		canvas_widget.into()
 	};

@@ -1,18 +1,15 @@
-use crate::message::Message;
+use crate::colors;
 use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout};
 use iced::advanced::mouse::Cursor;
-use iced::widget::canvas::{self, Frame};
-use iced::widget::image;
-use iced::{Color, Rectangle, Task};
+use iced::widget::canvas::{self, Frame, Path, Stroke, Style};
+use iced::{Color, Rectangle};
 use polars::prelude::*;
 use rand::RngExt;
 use rand_distr::{Distribution, Normal};
-use wgpu::util::DeviceExt;
 use std::sync::Arc;
 
 pub struct ViolinPlotKernel {
 	pub prepared_data: Arc<ViolinPreparedData>,
-	pub image_cache: Option<image::Handle>,
 }
 
 impl PlotKernel for ViolinPlotKernel {
@@ -23,31 +20,96 @@ impl PlotKernel for ViolinPlotKernel {
 		}
 	}
 
-	fn draw_raster(&self, frame: &mut Frame, bounds: Rectangle, _transform: &CoordinateTransformer) {
-		if let Some(handle) = &self.image_cache {
-			frame.draw_image(bounds, &handle.clone());
-		}
-	}
-
-	fn draw_overlay(
+	fn plot(
 		&self,
 		frame: &mut Frame,
 		_bounds: Rectangle,
 		transform: &CoordinateTransformer,
 		cursor: Cursor,
 	) {
-		if let Some(cursor_pos) = cursor.position()
-			&& let PlotLayout::CategoricalX { categories, .. } = self.layout() {
-			for (i, _) in categories.iter().enumerate() {
-				let (center_point, band_width) = transform.categorical(i, 0.0);
-				let left_edge = center_point.x - (band_width / 2.0);
-				let right_edge = center_point.x + (band_width / 2.0);
-
+		let num_violins = self.prepared_data.categories.len();
+		let tex_height_bins = self.prepared_data.tex_height_bins;
+		let (y_min, y_max) = self.prepared_data.y_range;
+		let y_step = (y_max - y_min) / (tex_height_bins as f32 - 1.0);
+		for i in 0..num_violins {
+			let (_center, band_width) = transform.categorical(i, 0.0);
+			let width_scale = band_width * 0.4;
+			let t = if num_violins > 1 { i as f32 / (num_violins - 1) as f32 } else { 0.5 };
+			let color = colors::viridis(t);
+			let mut first_bin = 0;
+			for bin in 0..tex_height_bins {
+				if self.prepared_data.kde_data[i * tex_height_bins + bin] > 0.01 {
+					first_bin = bin;
+					break;
+				}
+			}
+			let mut last_bin = tex_height_bins - 1;
+			for bin in (0..tex_height_bins).rev() {
+				if self.prepared_data.kde_data[i * tex_height_bins + bin] > 0.01 {
+					last_bin = bin;
+					break;
+				}
+			}
+			if first_bin >= last_bin { continue; }
+			let violin_path = Path::new(|builder| {
+				for bin in first_bin..=last_bin {
+					let data_y = y_min + bin as f32 * y_step;
+					let density = self.prepared_data.kde_data[i * tex_height_bins + bin];
+					let (p, _) = transform.categorical(i, data_y);
+					if bin == first_bin {
+						builder.move_to(iced::Point::new(p.x - density * width_scale, p.y));
+					} else {
+						builder.line_to(iced::Point::new(p.x - density * width_scale, p.y));
+					}
+				}
+				for bin in (first_bin..=last_bin).rev() {
+					let data_y = y_min + bin as f32 * y_step;
+					let density = self.prepared_data.kde_data[i * tex_height_bins + bin];
+					let (p, _) = transform.categorical(i, data_y);
+					builder.line_to(iced::Point::new(p.x + density * width_scale, p.y));
+				}
+				builder.close();
+			});
+			frame.fill(&violin_path, color);
+			let border_color = colors::viridis(1.0 - t);
+			let border_stroke = Stroke {
+				style: Style::Solid(border_color),
+				width: 2.5,
+				..Default::default()
+			};
+			frame.stroke(&violin_path, border_stroke);
+			if let Some(&median_val) = self.prepared_data.medians.get(i) {
+				let (median_px, _) = transform.categorical(i, median_val);
+				let bin_idx = (((median_val - y_min) / (y_max - y_min)) * (tex_height_bins as f32 - 1.0))
+					.floor() as usize;
+				let bin_idx = bin_idx.min(tex_height_bins - 1);
+				let density = self.prepared_data.kde_data[i * tex_height_bins + bin_idx];
+				let line_half_width = density * width_scale;
+				let median_path = Path::new(|builder| {
+					builder.move_to(iced::Point::new(median_px.x - line_half_width, median_px.y));
+					builder.line_to(iced::Point::new(median_px.x + line_half_width, median_px.y));
+				});
+				frame.stroke(&median_path, Stroke {
+					style: Style::Solid(Color::WHITE),
+					width: 4.0,
+					..Default::default()
+				});
+			}
+		}
+		if let Some(cursor_pos) = cursor.position() {
+			for i in 0..num_violins {
+				let (center, band_width) = transform.categorical(i, 0.0);
+				let left_edge = center.x - (band_width / 2.0);
+				let right_edge = center.x + (band_width / 2.0);
 				if cursor_pos.x >= left_edge && cursor_pos.x <= right_edge {
 					if let Some(&median_val) = self.prepared_data.medians.get(i) {
 						let (median_px, _) = transform.categorical(i, median_val);
-						let path = canvas::Path::circle(median_px, 4.0);
-						frame.fill(&path, Color::from_rgb(1.0, 0.2, 0.2));
+						let path = canvas::Path::circle(median_px, 5.0);
+						frame.stroke(&path, Stroke {
+							style: Style::Solid(Color::from_rgb(1.0, 0.2, 0.2)),
+							width: 2.0,
+							..Default::default()
+						});
 					}
 					break;
 				}
@@ -70,36 +132,14 @@ impl PlotKernel for ViolinPlotKernel {
 		}
 		None
 	}
-	
-	fn rasterize(&self, width: u32, height: u32) -> Task<Message> {
-		let data = self.prepared_data.clone();
-		Task::perform(
-			rasterize_task(data, width, height),
-			|(w, h, pixels)| Message::RasterizationResult(w, h, pixels),
-		)
-	}
-	
-	fn update_raster(&mut self, width: u32, height: u32, pixels: Vec<u8>) {
-		self.image_cache = Some(image::Handle::from_rgba(width, height, pixels));
-	}
 }
 
-async fn rasterize_task(
-	data: Arc<ViolinPreparedData>,
-	width: u32,
-	height: u32,
-) -> (u32, u32, Vec<u8>) {
-	rasterize_violin_plot_internal(&data, width, height).await
-}
-
-
-#[repr(C)]
-#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-struct ScreenUniform {
-	num_groups: u32,
-	y_min: f32,
-	y_max: f32,
-	width_scale: f32,
+pub struct ViolinPreparedData {
+	pub categories: Vec<String>,
+	pub y_range: (f32, f32),
+	pub medians: Vec<f32>,
+	pub kde_data: Vec<f32>, // [violin_idx * tex_height_bins + bin_idx]
+	pub tex_height_bins: usize,
 }
 
 fn compute_kde(
@@ -129,15 +169,6 @@ fn compute_kde(
 		}
 	}
 	density
-}
-
-pub struct ViolinPreparedData {
-	pub categories: Vec<String>,
-	pub y_range: (f32, f32),
-	pub medians: Vec<f32>,
-	pub kde_texture_data: Vec<f32>,
-	pub num_violins: usize,
-	pub tex_height_bins: usize,
 }
 
 pub fn prepare_violin_data(
@@ -188,10 +219,12 @@ pub fn prepare_violin_data(
 	let categories: Vec<String> = if let Ok(ca) = categories_series.i32() {
 		ca.into_no_null_iter().map(|i| i.to_string()).collect()
 	} else {
-		(0..num_violins).map(|i| i.to_string()).collect()
+		categories_series.iter().map(|v| {
+			if let AnyValue::String(s) = v { s.to_string() } else { v.to_string() }
+		}).collect()
 	};
-	let tex_height_bins = 1024;
-	let mut kde_texture_data = vec![0.0f32; num_violins * tex_height_bins];
+	let tex_height_bins = 256;
+	let mut kde_data = vec![0.0f32; num_violins * tex_height_bins];
 	let mut medians = Vec::with_capacity(num_violins);
 	for i in 0..num_violins {
 		medians.push(medians_series.get(i).unwrap());
@@ -200,238 +233,21 @@ pub fn prepare_violin_data(
 		let bandwidth = (y_max - y_min) * 0.03;
 		let density = compute_kde(&y_slice, tex_height_bins, y_min, y_max, bandwidth);
 		for bin in 0..tex_height_bins {
-			kde_texture_data[bin * num_violins + i] = density[bin];
+			kde_data[i * tex_height_bins + bin] = density[bin];
 		}
 	}
 	ViolinPreparedData {
 		categories,
 		y_range: (y_min, y_max),
 		medians,
-		kde_texture_data,
-		num_violins,
+		kde_data,
 		tex_height_bins,
 	}
 }
 
-pub async fn rasterize_violin_plot_internal(
-	data: &ViolinPreparedData,
-	width: u32,
-	height: u32,
-) -> (u32, u32, Vec<u8>) {
-	let instance = wgpu::Instance::default();
-	let adapter = instance
-		.request_adapter(&wgpu::RequestAdapterOptions::default())
-		.await
-		.unwrap();
-	let (device, queue) = adapter
-		.request_device(&wgpu::DeviceDescriptor::default())
-		.await
-		.unwrap();
-	let kde_texture = device.create_texture_with_data(
-		&queue,
-		&wgpu::TextureDescriptor {
-			label: None,
-			size: wgpu::Extent3d {
-				width: data.num_violins as u32,
-				height: data.tex_height_bins as u32,
-				depth_or_array_layers: 1,
-			},
-			mip_level_count: 1,
-			sample_count: 1,
-			dimension: wgpu::TextureDimension::D2,
-			format: wgpu::TextureFormat::R32Float,
-			usage: wgpu::TextureUsages::TEXTURE_BINDING,
-			view_formats: &[],
-		},
-		wgpu::util::TextureDataOrder::MipMajor,
-		bytemuck::cast_slice(&data.kde_texture_data),
-	);
-	let screen_uniform = ScreenUniform {
-		num_groups: data.num_violins as u32,
-		y_min: data.y_range.0,
-		y_max: data.y_range.1,
-		width_scale: 0.3,
-	};
-	let uniform_buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-		label: None,
-		contents: bytemuck::bytes_of(&screen_uniform),
-		usage: wgpu::BufferUsages::UNIFORM,
-	});
-	let medians_buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-		label: None,
-		contents: bytemuck::cast_slice(&data.medians),
-		usage: wgpu::BufferUsages::STORAGE,
-	});
-	let bgl = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-		label: None,
-		entries: &[
-			wgpu::BindGroupLayoutEntry {
-				binding: 0,
-				visibility: wgpu::ShaderStages::FRAGMENT,
-				ty: wgpu::BindingType::Buffer {
-					ty: wgpu::BufferBindingType::Uniform,
-					has_dynamic_offset: false,
-					min_binding_size: None,
-				},
-				count: None,
-			},
-			wgpu::BindGroupLayoutEntry {
-				binding: 1,
-				visibility: wgpu::ShaderStages::FRAGMENT,
-				ty: wgpu::BindingType::Texture {
-					sample_type: wgpu::TextureSampleType::Float { filterable: false },
-					view_dimension: wgpu::TextureViewDimension::D2,
-					multisampled: false,
-				},
-				count: None,
-			},
-			wgpu::BindGroupLayoutEntry {
-				binding: 2,
-				visibility: wgpu::ShaderStages::FRAGMENT,
-				ty: wgpu::BindingType::Buffer {
-					ty: wgpu::BufferBindingType::Storage { read_only: true },
-					has_dynamic_offset: false,
-					min_binding_size: None,
-				},
-				count: None,
-			},
-		],
-	});
-	let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-		layout: &bgl,
-		entries: &[
-			wgpu::BindGroupEntry {
-				binding: 0,
-				resource: uniform_buf.as_entire_binding(),
-			},
-			wgpu::BindGroupEntry {
-				binding: 1,
-				resource: wgpu::BindingResource::TextureView(
-					&kde_texture.create_view(&Default::default()),
-				),
-			},
-			wgpu::BindGroupEntry {
-				binding: 2,
-				resource: medians_buf.as_entire_binding(),
-			},
-		],
-		label: None,
-	});
-	let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-		label: None,
-		source: wgpu::ShaderSource::Wgsl(include_str!("violin.wgsl").into()),
-	});
-	let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-		label: None,
-		layout: Some(
-			&device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-				label: None,
-				bind_group_layouts: &[&bgl],
-				immediate_size: 0,
-			}),
-		),
-		vertex: wgpu::VertexState {
-			module: &shader,
-			entry_point: Some("vs_main"),
-			buffers: &[],
-			compilation_options: Default::default(),
-		},
-		fragment: Some(wgpu::FragmentState {
-			module: &shader,
-			entry_point: Some("fs_main"),
-			targets: &[Some(wgpu::ColorTargetState {
-				format: wgpu::TextureFormat::Rgba8Unorm,
-				blend: None,
-				write_mask: wgpu::ColorWrites::ALL,
-			})],
-			compilation_options: Default::default(),
-		}),
-		primitive: wgpu::PrimitiveState::default(),
-		depth_stencil: None,
-		multisample: wgpu::MultisampleState::default(),
-		multiview_mask: None,
-		cache: None,
-	});
-	let render_texture = device.create_texture(&wgpu::TextureDescriptor {
-		size: wgpu::Extent3d {
-			width,
-			height,
-			depth_or_array_layers: 1,
-		},
-		mip_level_count: 1,
-		sample_count: 1,
-		dimension: wgpu::TextureDimension::D2,
-		format: wgpu::TextureFormat::Rgba8Unorm,
-		usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
-		label: None,
-		view_formats: &[],
-	});
-	let mut encoder = device.create_command_encoder(&Default::default());
-	{
-		let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-			label: None,
-			color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-				view: &render_texture.create_view(&Default::default()),
-				resolve_target: None,
-				ops: wgpu::Operations {
-					load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-					store: wgpu::StoreOp::Store,
-				},
-				depth_slice: None,
-			})],
-			..Default::default()
-		});
-		rpass.set_pipeline(&pipeline);
-		rpass.set_bind_group(0, &bind_group, &[]);
-		rpass.draw(0..3, 0..1);
-	}
-	let bytes_per_row = (4 * width + 255) & !255;
-	let output_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-		size: (bytes_per_row * height) as u64,
-		usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
-		label: None,
-		mapped_at_creation: false,
-	});
-	encoder.copy_texture_to_buffer(
-		render_texture.as_image_copy(),
-		wgpu::TexelCopyBufferInfo {
-			buffer: &output_buffer,
-			layout: wgpu::TexelCopyBufferLayout {
-				offset: 0,
-				bytes_per_row: Some(bytes_per_row),
-				rows_per_image: Some(height),
-			},
-		},
-		wgpu::Extent3d {
-			width,
-			height,
-			depth_or_array_layers: 1,
-		},
-	);
-	queue.submit(Some(encoder.finish()));
-	let buffer_slice = output_buffer.slice(..);
-	let (tx, rx) = std::sync::mpsc::channel();
-	buffer_slice.map_async(wgpu::MapMode::Read, move |res| tx.send(res).unwrap());
-	device.poll(wgpu::PollType::Wait {
-		submission_index: None,
-		timeout: None,
-	}).unwrap();
-	rx.recv().unwrap().unwrap();
-	let data_map = buffer_slice.get_mapped_range();
-	let bytes_per_pixel = 4;
-	let unpadded_bytes_per_row = width * bytes_per_pixel;
-	let mut pixel_data = Vec::with_capacity((unpadded_bytes_per_row * height) as usize);
-	for chunk in data_map.chunks(bytes_per_row as usize) {
-		pixel_data.extend_from_slice(&chunk[..unpadded_bytes_per_row as usize]);
-	}
-	drop(data_map);
-	output_buffer.unmap();
-	(width, height, pixel_data)
-}
-
 pub fn generate_sample_data() -> DataFrame {
 	let num_violins = 12;
-	let n_per_group = 100_000;
+	let n_per_group = 10_000;
 	let total_n = n_per_group * num_violins;
 	let mut rng = rand::rng();
 	let mut xs = Vec::with_capacity(total_n);

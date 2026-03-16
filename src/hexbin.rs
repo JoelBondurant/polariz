@@ -1,18 +1,15 @@
-use crate::message::Message;
+use crate::colors;
 use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout};
 use iced::advanced::mouse::Cursor;
-use iced::widget::canvas::Frame;
-use iced::widget::image;
-use iced::{Rectangle, Task};
+use iced::widget::canvas::{Frame, Path, Stroke, Style};
+use iced::{Color, Rectangle};
 use polars::lazy::prelude::*;
 use polars::prelude::*;
 use rand_distr::{Distribution, Normal};
 use std::sync::Arc;
-use wgpu::util::DeviceExt;
 
 pub struct HexbinPlotKernel {
 	pub prepared_data: Arc<HexbinPreparedData>,
-	pub image_cache: Option<image::Handle>,
 }
 
 impl PlotKernel for HexbinPlotKernel {
@@ -23,71 +20,76 @@ impl PlotKernel for HexbinPlotKernel {
 		}
 	}
 
-	fn draw_raster(
+	fn plot(
 		&self,
 		frame: &mut Frame,
 		bounds: Rectangle,
-		_transform: &CoordinateTransformer,
-	) {
-		if let Some(handle) = &self.image_cache {
-			frame.draw_image(bounds, &handle.clone());
-		}
-	}
-
-	fn draw_overlay(
-		&self,
-		_frame: &mut Frame,
-		_bounds: Rectangle,
-		_transform: &CoordinateTransformer,
+		transform: &CoordinateTransformer,
 		_cursor: Cursor,
 	) {
+		let radius = self.prepared_data.radius;
+		let sqrt_3 = 3.0f32.sqrt();
+		let max_count = self.prepared_data.max_count as f32;
+		frame.with_clip(bounds, |frame| {
+			for (&(q, r), &count) in &self.prepared_data.bins {
+				if count == 0 { continue; }
+				let lx = radius * (sqrt_3 * q as f32 + sqrt_3 / 2.0 * r as f32);
+				let ly = radius * (3.0 / 2.0 * r as f32);
+				let hex_path = Path::new(|builder| {
+					for i in 0..6 {
+						let angle_deg = 60.0 * i as f32 - 30.0;
+						let angle_rad = std::f32::consts::PI / 180.0 * angle_deg;
+						let dx = radius * angle_rad.cos();
+						let dy = radius * angle_rad.sin();
+						let p = transform.cartesian(lx + dx, ly + dy);
+						if i == 0 {
+							builder.move_to(p);
+						} else {
+							builder.line_to(p);
+						}
+					}
+					builder.close();
+				});
+				let t = count as f32 / max_count;
+				let color = colors::viridis(t);
+				frame.fill(&hex_path, color);
+				frame.stroke(&hex_path, Stroke {
+					style: Style::Solid(Color::from_rgba(0.0, 0.0, 0.0, 0.1)),
+					width: 0.5,
+					..Default::default()
+				});
+			}
+		});
 	}
 
 	fn hover(&self, transform: &CoordinateTransformer, cursor: Cursor) -> Option<String> {
 		if let Some(cursor_pos) = cursor.position()
 			&& let Some((x, y)) = transform.pixel_to_cartesian(cursor_pos) {
-			return Some(format!("X: {:.2}, Y: {:.2}", x, y));
+			let radius = self.prepared_data.radius;
+			let sqrt_3 = 3.0f32.sqrt();
+			let q_frac = (sqrt_3 / 3.0 * x - 1.0 / 3.0 * y) / radius;
+			let r_frac = (2.0 / 3.0 * y) / radius;
+			let mut q = q_frac.round();
+			let mut r = r_frac.round();
+			let s = (-q_frac - r_frac).round();
+			let q_diff = (q - q_frac).abs();
+			let r_diff = (r - r_frac).abs();
+			let s_diff = (s - (-q_frac - r_frac)).abs();
+			if q_diff > r_diff && q_diff > s_diff {
+				q = -r - s;
+			} else if r_diff > s_diff {
+				r = -q - s;
+			}
+			if let Some(&count) = self.prepared_data.bins.get(&(q as i32, r as i32)) {
+				return Some(format!("Bin: ({}, {})\nCount: {}\nPos: ({:.2}, {:.2})", q, r, count, x, y));
+			}
 		}
 		None
 	}
-
-	fn rasterize(&self, width: u32, height: u32) -> Task<Message> {
-		let data = self.prepared_data.clone();
-		Task::perform(rasterize_task(data, width, height), |(w, h, pixels)| {
-			Message::RasterizationResult(w, h, pixels)
-		})
-	}
-
-	fn update_raster(&mut self, width: u32, height: u32, pixels: Vec<u8>) {
-		self.image_cache = Some(image::Handle::from_rgba(width, height, pixels));
-	}
-}
-
-async fn rasterize_task(
-	data: Arc<HexbinPreparedData>,
-	width: u32,
-	height: u32,
-) -> (u32, u32, Vec<u8>) {
-	rasterize_hexbin_plot_internal(&data, width, height).await
-}
-
-#[repr(C)]
-#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-struct ScreenUniform {
-	aspect_ratio: f32,
-	max_count: f32,
-	radius: f32,
-	min_q: i32,
-	min_r: i32,
-	_pad: [u32; 3],
 }
 
 pub struct HexbinPreparedData {
-	pub tex_data: Vec<f32>,
-	pub min_q: i32,
-	pub min_r: i32,
-	pub tex_width: u32,
-	pub tex_height: u32,
+	pub bins: std::collections::HashMap<(i32, i32), u32>,
 	pub max_count: u32,
 	pub radius: f32,
 	pub x_range: (f32, f32),
@@ -152,236 +154,24 @@ pub fn prepare_hexbin_data(df: &DataFrame, radius: f32) -> HexbinPreparedData {
 	let q_col = binned.column("q").unwrap().i32().unwrap();
 	let r_col = binned.column("r").unwrap().i32().unwrap();
 	let count_col = binned.column("count").unwrap().u32().unwrap();
-	let min_q = q_col.min().unwrap_or(0);
-	let min_r = r_col.min().unwrap_or(0);
-	let max_q = q_col.max().unwrap_or(0);
-	let max_r = r_col.max().unwrap_or(0);
-	let tex_width = (max_q - min_q + 1) as u32;
-	let tex_height = (max_r - min_r + 1) as u32;
-	let mut tex_data = vec![0.0f32; (tex_width * tex_height) as usize];
+	let mut bins = std::collections::HashMap::new();
 	let mut max_count = 0;
 	for i in 0..binned.height() {
 		let q = q_col.get(i).unwrap();
 		let r = r_col.get(i).unwrap();
 		let count = count_col.get(i).unwrap();
-		let x = (q - min_q) as u32;
-		let y = (r - min_r) as u32;
-		tex_data[(y * tex_width + x) as usize] = count as f32;
+		bins.insert((q, r), count);
 		if count > max_count {
 			max_count = count;
 		}
 	}
 	HexbinPreparedData {
-		tex_data,
-		min_q,
-		min_r,
-		tex_width,
-		tex_height,
+		bins,
 		max_count,
 		radius,
 		x_range,
 		y_range,
 	}
-}
-
-pub async fn rasterize_hexbin_plot_internal(
-	data: &HexbinPreparedData,
-	width: u32,
-	height: u32,
-) -> (u32, u32, Vec<u8>) {
-	let aspect_ratio = width as f32 / height as f32;
-	let instance = wgpu::Instance::default();
-	let adapter = instance
-		.request_adapter(&wgpu::RequestAdapterOptions::default())
-		.await
-		.unwrap();
-	let (device, queue) = adapter
-		.request_device(&wgpu::DeviceDescriptor::default())
-		.await
-		.unwrap();
-	let density_texture = device.create_texture_with_data(
-		&queue,
-		&wgpu::TextureDescriptor {
-			label: Some("Density Texture"),
-			size: wgpu::Extent3d {
-				width: data.tex_width,
-				height: data.tex_height,
-				depth_or_array_layers: 1,
-			},
-			mip_level_count: 1,
-			sample_count: 1,
-			dimension: wgpu::TextureDimension::D2,
-			format: wgpu::TextureFormat::R32Float,
-			usage: wgpu::TextureUsages::TEXTURE_BINDING,
-			view_formats: &[],
-		},
-		wgpu::util::TextureDataOrder::MipMajor,
-		bytemuck::cast_slice(&data.tex_data),
-	);
-	let density_view = density_texture.create_view(&wgpu::TextureViewDescriptor::default());
-	let screen_uniform = ScreenUniform {
-		aspect_ratio,
-		max_count: data.max_count as f32,
-		radius: data.radius,
-		min_q: data.min_q,
-		min_r: data.min_r,
-		_pad: [0; 3],
-	};
-	let screen_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-		label: None,
-		contents: bytemuck::bytes_of(&screen_uniform),
-		usage: wgpu::BufferUsages::UNIFORM,
-	});
-	let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-		label: None,
-		entries: &[
-			wgpu::BindGroupLayoutEntry {
-				binding: 0,
-				visibility: wgpu::ShaderStages::FRAGMENT,
-				ty: wgpu::BindingType::Buffer {
-					ty: wgpu::BufferBindingType::Uniform,
-					has_dynamic_offset: false,
-					min_binding_size: None,
-				},
-				count: None,
-			},
-			wgpu::BindGroupLayoutEntry {
-				binding: 1,
-				visibility: wgpu::ShaderStages::FRAGMENT,
-				ty: wgpu::BindingType::Texture {
-					sample_type: wgpu::TextureSampleType::Float { filterable: false },
-					view_dimension: wgpu::TextureViewDimension::D2,
-					multisampled: false,
-				},
-				count: None,
-			},
-		],
-	});
-	let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-		label: None,
-		layout: &bind_group_layout,
-		entries: &[
-			wgpu::BindGroupEntry {
-				binding: 0,
-				resource: screen_uniform_buffer.as_entire_binding(),
-			},
-			wgpu::BindGroupEntry {
-				binding: 1,
-				resource: wgpu::BindingResource::TextureView(&density_view),
-			},
-		],
-	});
-	let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-		label: None,
-		source: wgpu::ShaderSource::Wgsl(include_str!("hexbin.wgsl").into()),
-	});
-	let render_texture_desc = wgpu::TextureDescriptor {
-		size: wgpu::Extent3d {
-			width,
-			height,
-			depth_or_array_layers: 1,
-		},
-		mip_level_count: 1,
-		sample_count: 1,
-		dimension: wgpu::TextureDimension::D2,
-		format: wgpu::TextureFormat::Rgba8Unorm,
-		usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
-		label: None,
-		view_formats: &[],
-	};
-	let render_texture = device.create_texture(&render_texture_desc);
-	let render_view = render_texture.create_view(&wgpu::TextureViewDescriptor::default());
-	let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-		label: None,
-		bind_group_layouts: &[&bind_group_layout],
-		immediate_size: 0,
-	});
-	let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-		label: None,
-		layout: Some(&pipeline_layout),
-		vertex: wgpu::VertexState {
-			module: &shader,
-			entry_point: Some("vs_main"),
-			buffers: &[],
-			compilation_options: Default::default(),
-		},
-		fragment: Some(wgpu::FragmentState {
-			module: &shader,
-			entry_point: Some("fs_main"),
-			targets: &[Some(wgpu::ColorTargetState {
-				format: render_texture_desc.format,
-				blend: None,
-				write_mask: wgpu::ColorWrites::ALL,
-			})],
-			compilation_options: Default::default(),
-		}),
-		primitive: wgpu::PrimitiveState::default(),
-		depth_stencil: None,
-		multisample: wgpu::MultisampleState::default(),
-		multiview_mask: None,
-		cache: None,
-	});
-	let mut encoder =
-		device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-	{
-		let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-			label: None,
-			color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-				view: &render_view,
-				resolve_target: None,
-				ops: wgpu::Operations {
-					load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-					store: wgpu::StoreOp::Store,
-				},
-				depth_slice: None,
-			})],
-			depth_stencil_attachment: None,
-			timestamp_writes: None,
-			occlusion_query_set: None,
-			multiview_mask: None,
-		});
-		rpass.set_pipeline(&pipeline);
-		rpass.set_bind_group(0, &bind_group, &[]);
-		rpass.draw(0..3, 0..1);
-	}
-	let bytes_per_row = (4 * width + 255) & !255;
-	let output_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-		size: (bytes_per_row * height) as u64,
-		usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
-		label: None,
-		mapped_at_creation: false,
-	});
-	encoder.copy_texture_to_buffer(
-		render_texture.as_image_copy(),
-		wgpu::TexelCopyBufferInfo {
-			buffer: &output_buffer,
-			layout: wgpu::TexelCopyBufferLayout {
-				offset: 0,
-				bytes_per_row: Some(bytes_per_row),
-				rows_per_image: Some(height),
-			},
-		},
-		render_texture_desc.size,
-	);
-	queue.submit(Some(encoder.finish()));
-	let buffer_slice = output_buffer.slice(..);
-	let (tx, rx) = std::sync::mpsc::channel();
-	buffer_slice.map_async(wgpu::MapMode::Read, move |res| tx.send(res).unwrap());
-	device
-		.poll(wgpu::PollType::Wait {
-			submission_index: None,
-			timeout: None,
-		})
-		.unwrap();
-	rx.recv().unwrap().unwrap();
-	let data = buffer_slice.get_mapped_range();
-	let mut pixel_data = Vec::with_capacity((width * height * 4) as usize);
-	for chunk in data.chunks(bytes_per_row as usize) {
-		pixel_data.extend_from_slice(&chunk[..(width * 4) as usize]);
-	}
-	drop(data);
-	output_buffer.unmap();
-	(width, height, pixel_data)
 }
 
 pub fn generate_sample_hex_data(width: u32, height: u32) -> DataFrame {

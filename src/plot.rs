@@ -2,7 +2,7 @@ use crate::message::Message;
 use iced::advanced::mouse::Cursor;
 use iced::alignment;
 use iced::widget::canvas::{self, Frame, Geometry, Path, Program, Stroke, Style, Text};
-use iced::{Color, Event, Point, Rectangle, Renderer, Task, Theme};
+use iced::{Color, Event, Point, Rectangle, Renderer, Theme};
 
 #[allow(dead_code)]
 #[derive(Clone)]
@@ -98,9 +98,7 @@ impl<'a> CoordinateTransformer<'a> {
 pub trait PlotKernel {
 	fn layout(&self) -> PlotLayout;
 
-	fn draw_raster(&self, frame: &mut Frame, bounds: Rectangle, transform: &CoordinateTransformer);
-
-	fn draw_overlay(
+	fn plot(
 		&self,
 		frame: &mut Frame,
 		bounds: Rectangle,
@@ -109,10 +107,6 @@ pub trait PlotKernel {
 	);
 
 	fn hover(&self, transform: &CoordinateTransformer, cursor: Cursor) -> Option<String>;
-
-	fn rasterize(&self, width: u32, height: u32) -> Task<Message>;
-
-	fn update_raster(&mut self, width: u32, height: u32, pixels: Vec<u8>);
 }
 
 pub struct PlotWidget<'a> {
@@ -132,8 +126,7 @@ impl<'a> Program<Message> for PlotWidget<'a> {
 		bounds: Rectangle,
 		cursor: Cursor,
 	) -> Vec<Geometry> {
-		let mut raster_frame = Frame::new(renderer, bounds.size());
-		let mut chrome_frame = Frame::new(renderer, bounds.size());
+		let mut frame = Frame::new(renderer, bounds.size());
 		let padding_top = self.padding + 50.0;
 		let padding_bottom = self.padding + 40.0;
 		let padding_left = self.padding + 40.0;
@@ -146,48 +139,28 @@ impl<'a> Program<Message> for PlotWidget<'a> {
 		};
 		let layout = self.kernel.layout();
 		let transform = CoordinateTransformer::new(&layout, plot_area);
-		self.kernel
-			.draw_raster(&mut raster_frame, plot_area, &transform);
 		let relative_cursor = match cursor.position() {
 			Some(pos) => Cursor::Available(Point::new(pos.x - bounds.x, pos.y - bounds.y)),
 			None => Cursor::Unavailable,
 		};
 		self.kernel
-			.draw_overlay(&mut chrome_frame, plot_area, &transform, relative_cursor);
+			.plot(&mut frame, plot_area, &transform, relative_cursor);
 		match &layout {
 			PlotLayout::Cartesian { x_range, y_range } => {
-				self.draw_cartesian_grid(
-					&mut chrome_frame,
-					plot_area,
-					&transform,
-					*x_range,
-					*y_range,
-				);
+				self.draw_cartesian_grid(&mut frame, plot_area, &transform, *x_range, *y_range);
 			}
 			PlotLayout::CategoricalX {
 				categories,
 				y_range,
 			} => {
-				self.draw_categorical_axes(
-					&mut chrome_frame,
-					plot_area,
-					&transform,
-					categories,
-					*y_range,
-				);
+				self.draw_categorical_axes(&mut frame, plot_area, &transform, categories, *y_range);
 			}
 			PlotLayout::Parallel { dimensions, ranges } => {
-				self.draw_parallel_axes(
-					&mut chrome_frame,
-					plot_area,
-					&transform,
-					dimensions,
-					ranges,
-				);
+				self.draw_parallel_axes(&mut frame, plot_area, &transform, dimensions, ranges);
 			}
 			PlotLayout::Radial => {}
 		}
-		chrome_frame.fill_text(Text {
+		frame.fill_text(Text {
 			content: self.title.clone(),
 			position: Point::new(bounds.width / 2.0, 20.0),
 			color: Color::WHITE,
@@ -196,7 +169,7 @@ impl<'a> Program<Message> for PlotWidget<'a> {
 			align_y: alignment::Vertical::Top,
 			..Default::default()
 		});
-		vec![raster_frame.into_geometry(), chrome_frame.into_geometry()]
+		vec![frame.into_geometry()]
 	}
 
 	fn update(
