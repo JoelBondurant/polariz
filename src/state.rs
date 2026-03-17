@@ -14,6 +14,7 @@ use crate::pie::{self, PiePlotKernel};
 use crate::plot::{PlotKernel, PlotSettings, PlotWidget};
 use crate::plot_core::PlotType;
 use crate::radar::{self, RadarPlotKernel};
+use crate::radial_dial::{self, RadialDialPlotKernel};
 use crate::scatter::{self, ScatterPlotKernel};
 use crate::stacked_area::{self, StackedAreaPlotKernel};
 use crate::stacked_bar::{self, StackedBarPlotKernel};
@@ -223,6 +224,13 @@ fn create_plot(plot_type: PlotType, width: u32, height: u32) -> Box<dyn PlotKern
 			];
 			let prepared = radar::prepare_radar_data(&df, &dims, "cat");
 			Box::new(RadarPlotKernel {
+				prepared_data: Arc::new(prepared),
+			})
+		}
+		PlotType::RadialDial => {
+			let df = radial_dial::generate_sample_radial_dial_data();
+			let prepared = radial_dial::prepare_radial_dial_data(&df, "cat", "val", "max");
+			Box::new(RadialDialPlotKernel {
 				prepared_data: Arc::new(prepared),
 			})
 		}

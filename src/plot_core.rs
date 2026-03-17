@@ -15,6 +15,7 @@ pub enum PlotType {
 	Parallel,
 	Pie,
 	Radar,
+	RadialDial,
 	Scatter,
 	StackedArea,
 	StackedBar,
@@ -22,7 +23,7 @@ pub enum PlotType {
 }
 
 impl PlotType {
-	pub const ALL: [PlotType; 19] = [
+	pub const ALL: [PlotType; 20] = [
 		PlotType::Bar,
 		PlotType::BoxPlot,
 		PlotType::Bubble,
@@ -38,6 +39,7 @@ impl PlotType {
 		PlotType::Parallel,
 		PlotType::Pie,
 		PlotType::Radar,
+		PlotType::RadialDial,
 		PlotType::Scatter,
 		PlotType::StackedArea,
 		PlotType::StackedBar,
@@ -63,6 +65,7 @@ impl std::fmt::Display for PlotType {
 			PlotType::Parallel => write!(f, "Parallel Coordinates Plot"),
 			PlotType::Pie => write!(f, "Pie Plot"),
 			PlotType::Radar => write!(f, "Radar Plot"),
+			PlotType::RadialDial => write!(f, "Radial Dial Plot"),
 			PlotType::Scatter => write!(f, "Scatter Plot"),
 			PlotType::StackedArea => write!(f, "Stacked Area Plot"),
 			PlotType::StackedBar => write!(f, "Stacked Bar Plot"),

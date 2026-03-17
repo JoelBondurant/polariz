@@ -11,6 +11,7 @@ An experimental project to develop an iced plotting component for Polariton.
 ![Line plot component.](https://github.com/JoelBondurant/polariz/blob/main/img/line_plot.png?raw=true)
 ![Scatter plot component.](https://github.com/JoelBondurant/polariz/blob/main/img/scatter_plot.png?raw=true)
 ![Pie plot component.](https://github.com/JoelBondurant/polariz/blob/main/img/pie_plot.png?raw=true)
+![Radial dial plot component.](https://github.com/JoelBondurant/polariz/blob/main/img/radial_dial_plot.png?raw=true)
 ![Stacked area plot component.](https://github.com/JoelBondurant/polariz/blob/main/img/stacked_area_plot.png?raw=true)
 ![Bubble plot component.](https://github.com/JoelBondurant/polariz/blob/main/img/bubble_plot.png?raw=true)
 ![Funnel plot component.](https://github.com/JoelBondurant/polariz/blob/main/img/funnel_plot.png?raw=true)
