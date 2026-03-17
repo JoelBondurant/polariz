@@ -1,3 +1,4 @@
+use crate::colors::ColorTheme;
 use crate::plot_core::PlotType;
 
 #[derive(Clone, Debug)]
@@ -9,4 +10,5 @@ pub enum Message {
 	SetLegendY(f32),
 	SetXRotation(f32),
 	SetXOffset(f32),
+	ChangeColorTheme(ColorTheme),
 }

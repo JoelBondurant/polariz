@@ -1,4 +1,3 @@
-use crate::colors;
 use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{Frame, Path};
@@ -21,6 +20,7 @@ impl PlotKernel for RadialDialPlotKernel {
 		bounds: Rectangle,
 		_transform: &CoordinateTransformer,
 		_cursor: Cursor,
+		settings: crate::plot::PlotSettings,
 	) {
 		let num_cats = self.prepared_data.categories.len();
 		if num_cats == 0 {
@@ -47,7 +47,7 @@ impl PlotKernel for RadialDialPlotKernel {
 			} else {
 				0.5
 			};
-			let color = colors::viridis(t);
+			let color = settings.color_theme.get_color(t);
 			let outer_r = max_radius - i as f32 * (ring_thickness + ring_spacing);
 			let inner_r = outer_r - ring_thickness;
 			let track_path = Path::new(|builder| {
@@ -138,7 +138,7 @@ impl PlotKernel for RadialDialPlotKernel {
 			} else {
 				0.5
 			};
-			let color = colors::viridis(t);
+			let color = settings.color_theme.get_color(t);
 			let col = i / max_rows;
 			let row = i % max_rows;
 			let item_x = x + legend_padding + col as f32 * col_width;

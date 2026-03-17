@@ -1,4 +1,3 @@
-use crate::colors;
 use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout, AxisType, polars_type_to_axis_type};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{Frame, Path, Stroke, Style};
@@ -27,6 +26,7 @@ impl PlotKernel for CandlestickPlotKernel {
 		_bounds: Rectangle,
 		transform: &CoordinateTransformer,
 		_cursor: Cursor,
+		settings: crate::plot::PlotSettings,
 	) {
 		let n = self.prepared_data.x.len();
 		if n == 0 { return; }
@@ -37,8 +37,8 @@ impl PlotKernel for CandlestickPlotKernel {
 		};
 		let x_scale = transform.bounds.width as f64 / (self.prepared_data.x_range.1 - self.prepared_data.x_range.0);
 		let candle_width = (x_scale * x_delta * 0.7).max(1.0) as f32;
-		let bullish_color = colors::viridis(0.78);
-		let bearish_color = colors::viridis(0.12);
+		let bullish_color = settings.color_theme.get_color(1.0);
+		let bearish_color = settings.color_theme.get_color(0.0);
 		for i in 0..n {
 			let x = self.prepared_data.x[i];
 			let open = self.prepared_data.open[i];

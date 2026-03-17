@@ -1,4 +1,3 @@
-use crate::colors;
 use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{Frame, Path, Stroke, Style};
@@ -22,9 +21,10 @@ impl PlotKernel for PiePlotKernel {
 		_bounds: Rectangle,
 		transform: &CoordinateTransformer,
 		_cursor: Cursor,
+		settings: crate::plot::PlotSettings,
 	) {
 		let center = transform.bounds.center();
-		let radius = transform.bounds.width.min(transform.bounds.height) * 0.50;
+		let radius = transform.bounds.width.min(transform.bounds.height) * 0.45;
 		let inner_radius = radius * 0.02;
 		let num_sectors = self.prepared_data.categories.len();
 		let pi = std::f32::consts::PI;
@@ -38,7 +38,7 @@ impl PlotKernel for PiePlotKernel {
 			} else {
 				0.5
 			};
-			let color = colors::viridis(t);
+			let color = settings.color_theme.get_color(t);
 			let wedge_path = Path::new(|builder| {
 				let steps = 40;
 				for step in 0..=steps {
@@ -142,7 +142,7 @@ impl PlotKernel for PiePlotKernel {
 			} else {
 				0.5
 			};
-			let color = colors::viridis(t);
+			let color = settings.color_theme.get_color(t);
 			let col = i / max_rows;
 			let row = i % max_rows;
 			let item_x = x + legend_padding + col as f32 * col_width;

@@ -1,4 +1,3 @@
-use crate::colors;
 use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout, AxisType};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{Frame, Path, Stroke, Style};
@@ -28,6 +27,7 @@ impl PlotKernel for HexbinPlotKernel {
 		bounds: Rectangle,
 		transform: &CoordinateTransformer,
 		_cursor: Cursor,
+		settings: crate::plot::PlotSettings,
 	) {
 		let radius = self.prepared_data.radius as f64;
 		let sqrt_3 = 3.0f64.sqrt();
@@ -53,7 +53,7 @@ impl PlotKernel for HexbinPlotKernel {
 					builder.close();
 				});
 				let t = count as f32 / max_count as f32;
-				let color = colors::viridis(t);
+				let color = settings.color_theme.get_color(t);
 				frame.fill(&hex_path, color);
 				frame.stroke(&hex_path, Stroke {
 					style: Style::Solid(Color::from_rgba(0.0, 0.0, 0.0, 0.1)),
@@ -83,7 +83,7 @@ impl PlotKernel for HexbinPlotKernel {
 		let steps = 50;
 		for i in 0..steps {
 			let t = i as f32 / (steps - 1) as f32;
-			let color = colors::viridis(t);
+			let color = settings.color_theme.get_color(t);
 			let step_height = bar_height / steps as f32;
 			let step_y = bar_y + bar_height - (i as f32 + 1.0) * step_height;
 			frame.fill_rectangle(

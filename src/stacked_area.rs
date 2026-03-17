@@ -1,4 +1,3 @@
-use crate::colors;
 use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout, AxisType, polars_type_to_axis_type};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{Frame, Path, Stroke, Style};
@@ -28,6 +27,7 @@ impl PlotKernel for StackedAreaPlotKernel {
 		_bounds: Rectangle,
 		transform: &CoordinateTransformer,
 		_cursor: Cursor,
+		settings: crate::plot::PlotSettings,
 	) {
 		let num_cats = self.prepared_data.categories.len();
 		let num_xs = self.prepared_data.unique_xs.len();
@@ -36,7 +36,7 @@ impl PlotKernel for StackedAreaPlotKernel {
 		let mut current_stacked_ys = vec![0.0f64; num_xs];
 		for cat_idx in 0..num_cats {
 			let t = if num_cats > 1 { cat_idx as f32 / (num_cats - 1) as f32 } else { 0.5 };
-			let color = colors::viridis(t);
+			let color = settings.color_theme.get_color(t);
 			for x_idx in 0..num_xs {
 				current_stacked_ys[x_idx] = prev_stacked_ys[x_idx] + self.prepared_data.category_values[cat_idx][x_idx];
 			}
@@ -122,7 +122,7 @@ impl PlotKernel for StackedAreaPlotKernel {
 		);
 		for (i, name) in self.prepared_data.categories.iter().enumerate() {
 			let t = if num_cats > 1 { i as f32 / (num_cats - 1) as f32 } else { 0.5 };
-			let color = colors::viridis(t);
+			let color = settings.color_theme.get_color(t);
 			let col = i / max_rows;
 			let row = i % max_rows;
 			let item_x = x + legend_padding + col as f32 * col_width;

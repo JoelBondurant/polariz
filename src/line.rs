@@ -1,4 +1,3 @@
-use crate::colors;
 use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout, AxisType, TimeUnit};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{Frame, Path, Stroke, Style};
@@ -27,9 +26,10 @@ impl PlotKernel for LinePlotKernel {
 		_bounds: Rectangle,
 		transform: &CoordinateTransformer,
 		_cursor: Cursor,
+		settings: crate::plot::PlotSettings,
 	) {
 		for series in &self.prepared_data.series {
-			let color = colors::viridis(series.color_t);
+			let color = settings.color_theme.get_color(series.color_t);
 			let stroke = Stroke {
 				style: Style::Solid(color),
 				width: 2.0,
@@ -79,7 +79,7 @@ impl PlotKernel for LinePlotKernel {
 			iced::Color::from_rgba(0.0, 0.0, 0.0, 0.6)
 		);
 		for (i, series) in self.prepared_data.series.iter().enumerate() {
-			let color = colors::viridis(series.color_t);
+			let color = settings.color_theme.get_color(series.color_t);
 			let col = i / max_rows;
 			let row = i % max_rows;
 			let item_x = x + legend_padding + col as f32 * col_width;

@@ -1,4 +1,3 @@
-use crate::colors;
 use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{Frame, Path, Stroke, Style};
@@ -25,6 +24,7 @@ impl PlotKernel for ParallelPlotKernel {
 		_bounds: Rectangle,
 		transform: &CoordinateTransformer,
 		_cursor: Cursor,
+		settings: crate::plot::PlotSettings,
 	) {
 		let num_dims = self.prepared_data.dimensions.len();
 		if num_dims < 2 {
@@ -37,7 +37,7 @@ impl PlotKernel for ParallelPlotKernel {
 			} else {
 				0.5
 			};
-			let color = colors::viridis(t);
+			let color = settings.color_theme.get_color(t);
 			let stroke = Stroke {
 				style: Style::Solid(color),
 				width: 1.5,
@@ -89,7 +89,7 @@ impl PlotKernel for ParallelPlotKernel {
 			} else {
 				0.5
 			};
-			let color = colors::viridis(t);
+			let color = settings.color_theme.get_color(t);
 			let col = i / max_rows;
 			let row = i % max_rows;
 			let item_x = x + legend_padding + col as f32 * col_width;

@@ -1,4 +1,3 @@
-use crate::colors;
 use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{Frame, Path, Stroke, Style};
@@ -22,6 +21,7 @@ impl PlotKernel for RadarPlotKernel {
 		bounds: Rectangle,
 		_transform: &CoordinateTransformer,
 		_cursor: Cursor,
+		settings: crate::plot::PlotSettings,
 	) {
 		let num_dims = self.prepared_data.dimensions.len();
 		if num_dims < 3 {
@@ -106,7 +106,7 @@ impl PlotKernel for RadarPlotKernel {
 			} else {
 				0.5
 			};
-			let color = colors::viridis(1.0 - t);
+			let color = settings.color_theme.get_color(t);
 			let mut fill_color = color;
 			fill_color.a = 0.3;
 			let path = Path::new(|builder| {
@@ -172,7 +172,7 @@ impl PlotKernel for RadarPlotKernel {
 			} else {
 				0.5
 			};
-			let color = colors::viridis(1.0 - t);
+			let color = settings.color_theme.get_color(t);
 			let col = i / max_rows;
 			let row = i % max_rows;
 			let item_x = x + legend_padding + col as f32 * col_width;

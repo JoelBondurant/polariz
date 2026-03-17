@@ -2,6 +2,7 @@ use crate::bar::{self, BarPlotKernel};
 use crate::box_plot::{self, BoxPlotKernel};
 use crate::bubble::{self, BubblePlotKernel};
 use crate::candlestick::{self, CandlestickPlotKernel};
+use crate::colors::ColorTheme;
 use crate::fill_between::{self, FillBetweenPlotKernel};
 use crate::funnel::{self, FunnelPlotKernel};
 use crate::heatmap::{self, HeatmapPlotKernel};
@@ -277,6 +278,10 @@ fn update(state: &mut AppState, message: Message) -> Task<Message> {
 			state.x_offset_input = offset.to_string();
 			Task::none()
 		}
+		Message::ChangeColorTheme(theme) => {
+			state.plot_settings.color_theme = theme;
+			Task::none()
+		}
 	}
 }
 
@@ -317,6 +322,12 @@ fn view(state: &AppState) -> Element<'_, Message> {
 			&PlotType::ALL[..],
 			Some(state.current_plot_type),
 			Message::ChangePlotType
+		),
+		text("Theme:"),
+		pick_list(
+			&ColorTheme::ALL[..],
+			Some(state.plot_settings.color_theme),
+			Message::ChangeColorTheme
 		),
 		text("Legend Rows:"),
 		text_input("", &state.max_legend_rows_input)

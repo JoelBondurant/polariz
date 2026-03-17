@@ -1,4 +1,3 @@
-use crate::colors;
 use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout, AxisType, polars_type_to_axis_type};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{Frame, Path, Stroke, Style};
@@ -24,6 +23,7 @@ impl PlotKernel for BoxPlotKernel {
 		_bounds: Rectangle,
 		transform: &CoordinateTransformer,
 		_cursor: Cursor,
+		settings: crate::plot::PlotSettings,
 	) {
 		let num_cats = self.prepared_data.categories.len();
 		for (i, stats) in self.prepared_data.stats.iter().enumerate() {
@@ -32,7 +32,7 @@ impl PlotKernel for BoxPlotKernel {
 			let left = center.x - box_width / 2.0;
 			let right = center.x + box_width / 2.0;
 			let t = if num_cats > 1 { i as f32 / (num_cats - 1) as f32 } else { 0.5 };
-			let color = colors::viridis(t);
+			let color = settings.color_theme.get_color(t);
 			let color_iced = color;
 			let line_color = Color::WHITE;
 			let (q1_px, _) = transform.categorical(i, stats.q1);
@@ -147,7 +147,7 @@ impl PlotKernel for BoxPlotKernel {
 		);
 		for (i, name) in self.prepared_data.categories.iter().enumerate() {
 			let t = if num_cats > 1 { i as f32 / (num_cats - 1) as f32 } else { 0.5 };
-			let color = colors::viridis(t);
+			let color = settings.color_theme.get_color(t);
 			let col = i / max_rows;
 			let row = i % max_rows;
 			let item_x = x + legend_padding + col as f32 * col_width;

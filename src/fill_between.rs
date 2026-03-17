@@ -1,4 +1,3 @@
-use crate::colors;
 use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout, AxisType, polars_type_to_axis_type};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{Frame, Path, Stroke, Style};
@@ -27,13 +26,14 @@ impl PlotKernel for FillBetweenPlotKernel {
 		_bounds: Rectangle,
 		transform: &CoordinateTransformer,
 		_cursor: Cursor,
+		settings: crate::plot::PlotSettings,
 	) {
 		if self.prepared_data.x.is_empty() {
 			return;
 		}
-		let line_color = colors::viridis(0.9);
+		let line_color = settings.color_theme.get_color(0.9);
 		let band_color = {
-			let mut c = colors::viridis(0.1);
+			let mut c = settings.color_theme.get_color(0.1);
 			c.a = 0.9;
 			c
 		};

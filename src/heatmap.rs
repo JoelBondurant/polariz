@@ -1,4 +1,3 @@
-use crate::colors;
 use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{Frame, Stroke, Style};
@@ -24,6 +23,7 @@ impl PlotKernel for HeatmapPlotKernel {
 		_bounds: Rectangle,
 		transform: &CoordinateTransformer,
 		_cursor: Cursor,
+		settings: crate::plot::PlotSettings,
 	) {
 		let num_x = self.prepared_data.x_categories.len();
 		let num_y = self.prepared_data.y_categories.len();
@@ -32,7 +32,7 @@ impl PlotKernel for HeatmapPlotKernel {
 			for j in 0..num_y {
 				let val = self.prepared_data.values[i][j];
 				let t = if max_val > 0.0 { (val / max_val) as f32 } else { 0.0 };
-				let color = colors::viridis(t);
+				let color = settings.color_theme.get_color(t);
 				let (center, bw, bh) = transform.categorical_2d(i, j);
 				let rect_x = center.x - bw / 2.0;
 				let rect_y = center.y - bh / 2.0;
@@ -101,7 +101,7 @@ impl PlotKernel for HeatmapPlotKernel {
 		let steps = 50;
 		for i in 0..steps {
 			let t = i as f32 / (steps - 1) as f32;
-			let color = colors::viridis(t);
+			let color = settings.color_theme.get_color(t);
 			let step_height = bar_height / steps as f32;
 			let step_y = bar_y + bar_height - (i as f32 + 1.0) * step_height;
 			frame.fill_rectangle(

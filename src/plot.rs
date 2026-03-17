@@ -1,3 +1,4 @@
+use crate::colors::ColorTheme;
 use crate::message::Message;
 use iced::advanced::mouse::Cursor;
 use iced::alignment;
@@ -171,6 +172,7 @@ pub struct PlotSettings {
 	pub legend_y: f32,
 	pub x_label_rotation: f32,
 	pub x_label_offset: f32,
+	pub color_theme: ColorTheme,
 }
 
 impl Default for PlotSettings {
@@ -181,6 +183,7 @@ impl Default for PlotSettings {
 			legend_y: 0.05,
 			x_label_rotation: 0.0,
 			x_label_offset: 10.0,
+			color_theme: ColorTheme::default(),
 		}
 	}
 }
@@ -194,6 +197,7 @@ pub trait PlotKernel {
 		bounds: Rectangle,
 		transform: &CoordinateTransformer,
 		cursor: Cursor,
+		settings: PlotSettings,
 	);
 
 	fn draw_legend(&self, _frame: &mut Frame, _bounds: Rectangle, _settings: PlotSettings) {}
@@ -245,7 +249,7 @@ impl<'a> Program<Message> for PlotWidget<'a> {
 			None => Cursor::Unavailable,
 		};
 		self.kernel
-			.plot(&mut frame, plot_area, &transform, relative_cursor);
+			.plot(&mut frame, plot_area, &transform, relative_cursor, self.settings);
 		match &layout {
 			PlotLayout::Cartesian {
 				x_range, y_range, ..

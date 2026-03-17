@@ -1,4 +1,3 @@
-use crate::colors;
 use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{Frame, Text};
@@ -38,6 +37,7 @@ impl PlotKernel for BarPlotKernel {
 		_bounds: Rectangle,
 		transform: &CoordinateTransformer,
 		_cursor: Cursor,
+		settings: crate::plot::PlotSettings,
 	) {
 		let num_cats = self.prepared_data.categories.len();
 		let num_groups = self.prepared_data.group_names.len();
@@ -71,7 +71,7 @@ impl PlotKernel for BarPlotKernel {
 						} else {
 							0.5
 						};
-						let color = colors::viridis(t);
+						let color = settings.color_theme.get_color(t);
 						frame.fill_rectangle(bar_rect.position(), bar_rect.size(), color);
 					}
 				}
@@ -108,7 +108,7 @@ impl PlotKernel for BarPlotKernel {
 						} else {
 							0.5
 						};
-						let color = colors::viridis(t);
+						let color = settings.color_theme.get_color(t);
 						frame.fill_rectangle(bar_rect.position(), bar_rect.size(), color);
 					}
 				}
@@ -228,7 +228,7 @@ impl PlotKernel for BarPlotKernel {
 			} else {
 				0.5
 			};
-			let color = colors::viridis(t);
+			let color = settings.color_theme.get_color(t);
 			let col = i / max_rows;
 			let row = i % max_rows;
 			let item_x = x + legend_padding + col as f32 * col_width;

@@ -1,5 +1,4 @@
-use crate::colors;
-use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout};
+use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout, PlotSettings};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{self, Frame, Path, Stroke, Style};
 use iced::{Color, Rectangle};
@@ -26,6 +25,7 @@ impl PlotKernel for ViolinPlotKernel {
 		_bounds: Rectangle,
 		transform: &CoordinateTransformer,
 		cursor: Cursor,
+		settings: PlotSettings,
 	) {
 		let num_violins = self.prepared_data.categories.len();
 		let tex_height_bins = self.prepared_data.tex_height_bins;
@@ -35,7 +35,7 @@ impl PlotKernel for ViolinPlotKernel {
 			let (_center, band_width) = transform.categorical(i, 0.0);
 			let width_scale = band_width * 0.4;
 			let t = if num_violins > 1 { i as f32 / (num_violins - 1) as f32 } else { 0.5 };
-			let color = colors::viridis(t);
+			let color = settings.color_theme.get_color(t);
 			let mut first_bin = 0;
 			for bin in 0..tex_height_bins {
 				if self.prepared_data.kde_data[i * tex_height_bins + bin] > 0.01 {
@@ -71,9 +71,8 @@ impl PlotKernel for ViolinPlotKernel {
 				builder.close();
 			});
 			frame.fill(&violin_path, color);
-			let border_color = colors::viridis(1.0 - t);
 			let border_stroke = Stroke {
-				style: Style::Solid(border_color),
+				style: Style::Solid(Color::WHITE),
 				width: 2.5,
 				..Default::default()
 			};
@@ -117,7 +116,7 @@ impl PlotKernel for ViolinPlotKernel {
 		}
 	}
 
-	fn draw_legend(&self, frame: &mut Frame, bounds: Rectangle, settings: crate::plot::PlotSettings) {
+	fn draw_legend(&self, frame: &mut Frame, bounds: Rectangle, settings: PlotSettings) {
 		let num_cats = self.prepared_data.categories.len();
 		if num_cats == 0 { return; }
 		let max_rows = settings.max_legend_rows.max(1) as usize;
@@ -138,7 +137,7 @@ impl PlotKernel for ViolinPlotKernel {
 		);
 		for (i, name) in self.prepared_data.categories.iter().enumerate() {
 			let t = if num_cats > 1 { i as f32 / (num_cats - 1) as f32 } else { 0.5 };
-			let color = colors::viridis(t);
+			let color = settings.color_theme.get_color(t);
 			let col = i / max_rows;
 			let row = i % max_rows;
 			let item_x = x + legend_padding + col as f32 * col_width;

@@ -1,4 +1,3 @@
-use crate::colors;
 use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout, PlotSettings};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{Frame, Path, Stroke, Style, Text};
@@ -29,6 +28,7 @@ impl PlotKernel for FunnelPlotKernel {
 		bounds: Rectangle,
 		_transform: &CoordinateTransformer,
 		_cursor: Cursor,
+		settings: crate::plot::PlotSettings,
 	) {
 		let num_stages = self.prepared_data.stages.len();
 		if num_stages == 0 {
@@ -52,7 +52,7 @@ impl PlotKernel for FunnelPlotKernel {
 			} else {
 				0.5
 			};
-			let color = colors::viridis(t);
+			let color = settings.color_theme.get_color(t);
 			let trapezoid = Path::new(|builder| {
 				builder.move_to(Point::new(center_x - width / 2.0, y_top));
 				builder.line_to(Point::new(center_x + width / 2.0, y_top));
@@ -108,7 +108,7 @@ impl PlotKernel for FunnelPlotKernel {
 			} else {
 				0.5
 			};
-			let color = colors::viridis(t);
+			let color = settings.color_theme.get_color(t);
 			let col = i / max_rows;
 			let row = i % max_rows;
 			let item_x = x + legend_padding + col as f32 * col_width;

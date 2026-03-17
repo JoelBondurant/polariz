@@ -1,4 +1,3 @@
-use crate::colors;
 use crate::plot::{CoordinateTransformer, PlotSettings, PlotKernel, PlotLayout, AxisType, polars_type_to_axis_type};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{Frame, Path, Stroke, Style, Text};
@@ -49,6 +48,7 @@ impl PlotKernel for BubblePlotKernel {
 		_bounds: Rectangle,
 		transform: &CoordinateTransformer,
 		_cursor: Cursor,
+		settings: crate::plot::PlotSettings,
 	) {
 		let color_min = self.prepared_data.color_range.0;
 		let color_max = self.prepared_data.color_range.1;
@@ -59,7 +59,7 @@ impl PlotKernel for BubblePlotKernel {
 		for point in &self.prepared_data.points {
 			let p = transform.cartesian(point.x, point.y);
 			let t_color = ((point.color_val - color_min) / color_delta) as f32;
-			let color = colors::viridis(t_color);
+			let color = settings.color_theme.get_color(t_color);
 			let t_size = ((point.size_val - size_min) / size_delta) as f32;
 			let radius = 2.0 + t_size * 28.0;
 			let circle = Path::circle(p, radius);
@@ -97,7 +97,7 @@ impl PlotKernel for BubblePlotKernel {
 		let steps = 50;
 		for i in 0..steps {
 			let t = i as f32 / (steps - 1) as f32;
-			let color = colors::viridis(t);
+			let color = settings.color_theme.get_color(t);
 			let step_height = bar_height / steps as f32;
 			let step_y = bar_y + bar_height - (i as f32 + 1.0) * step_height;
 			frame.fill_rectangle(

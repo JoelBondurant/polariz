@@ -1,4 +1,3 @@
-use crate::colors;
 use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout, AxisType, polars_type_to_axis_type};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::Frame;
@@ -27,6 +26,7 @@ impl PlotKernel for HistogramPlotKernel {
 		_bounds: Rectangle,
 		transform: &CoordinateTransformer,
 		_cursor: Cursor,
+		settings: crate::plot::PlotSettings,
 	) {
 		let num_bins = self.prepared_data.bin_counts.len();
 		let (x_min, x_max) = self.prepared_data.x_range;
@@ -45,7 +45,7 @@ impl PlotKernel for HistogramPlotKernel {
 				height: (p_bottom_right.y - p_top_left.y).max(1.0),
 			};
 			let t = count as f32 / max_count as f32;
-			let color = colors::viridis(t);
+			let color = settings.color_theme.get_color(t);
 			frame.fill_rectangle(rect.position(), rect.size(), color);
 			frame.stroke(&iced::widget::canvas::Path::rectangle(rect.position(), rect.size()), iced::widget::canvas::Stroke {
 				style: iced::widget::canvas::Style::Solid(Color::from_rgba(0.0, 0.0, 0.0, 0.2)),
@@ -74,7 +74,7 @@ impl PlotKernel for HistogramPlotKernel {
 		let steps = 50;
 		for i in 0..steps {
 			let t = i as f32 / (steps - 1) as f32;
-			let color = colors::viridis(t);
+			let color = settings.color_theme.get_color(t);
 			let step_height = bar_height / steps as f32;
 			let step_y = bar_y + bar_height - (i as f32 + 1.0) * step_height;
 			frame.fill_rectangle(
