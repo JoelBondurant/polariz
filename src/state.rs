@@ -11,7 +11,7 @@ use crate::line::{self, LinePlotKernel};
 use crate::message::Message;
 use crate::parallel::{self, ParallelPlotKernel};
 use crate::pie::{self, PiePlotKernel};
-use crate::plot::{LegendSettings, PlotKernel, PlotWidget};
+use crate::plot::{PlotKernel, PlotSettings, PlotWidget};
 use crate::plot_core::PlotType;
 use crate::scatter::{self, ScatterPlotKernel};
 use crate::stacked_area::{self, StackedAreaPlotKernel};
@@ -30,10 +30,12 @@ struct AppState {
 	current_plot_type: PlotType,
 	#[allow(dead_code)]
 	current_size: (u32, u32),
-	legend_settings: LegendSettings,
-	max_rows_input: String,
+	plot_settings: PlotSettings,
+	max_legend_rows_input: String,
 	legend_x_input: String,
 	legend_y_input: String,
+	x_rotation_input: String,
+	x_offset_input: String,
 }
 
 pub type Result = iced::Result;
@@ -51,16 +53,18 @@ pub fn run() -> Result {
 fn new() -> (AppState, Task<Message>) {
 	let plot_type = PlotType::Bar;
 	let kernel = create_plot(plot_type, WIDTH, HEIGHT);
-	let legend_settings = LegendSettings::default();
+	let plot_settings = PlotSettings::default();
 	let state = AppState {
 		kernel,
 		hovered_info: None,
 		current_plot_type: plot_type,
 		current_size: (WIDTH, HEIGHT),
-		legend_settings,
-		max_rows_input: legend_settings.max_rows.to_string(),
-		legend_x_input: legend_settings.position_x.to_string(),
-		legend_y_input: legend_settings.position_y.to_string(),
+		plot_settings,
+		max_legend_rows_input: plot_settings.max_legend_rows.to_string(),
+		legend_x_input: plot_settings.legend_x.to_string(),
+		legend_y_input: plot_settings.legend_y.to_string(),
+		x_rotation_input: plot_settings.x_label_rotation.to_string(),
+		x_offset_input: plot_settings.x_label_offset.to_string(),
 	};
 	(state, Task::none())
 }
@@ -225,18 +229,28 @@ fn update(state: &mut AppState, message: Message) -> Task<Message> {
 			Task::none()
 		}
 		Message::SetMaxLegendRows(rows) => {
-			state.legend_settings.max_rows = rows;
-			state.max_rows_input = rows.to_string();
+			state.plot_settings.max_legend_rows = rows;
+			state.max_legend_rows_input = rows.to_string();
 			Task::none()
 		}
 		Message::SetLegendX(x) => {
-			state.legend_settings.position_x = x.clamp(0.0, 1.0);
+			state.plot_settings.legend_x = x.clamp(0.0, 1.0);
 			state.legend_x_input = x.to_string();
 			Task::none()
 		}
 		Message::SetLegendY(y) => {
-			state.legend_settings.position_y = y.clamp(0.0, 1.0);
+			state.plot_settings.legend_y = y.clamp(0.0, 1.0);
 			state.legend_y_input = y.to_string();
+			Task::none()
+		}
+		Message::SetXRotation(deg) => {
+			state.plot_settings.x_label_rotation = deg;
+			state.x_rotation_input = deg.to_string();
+			Task::none()
+		}
+		Message::SetXOffset(offset) => {
+			state.plot_settings.x_label_offset = offset;
+			state.x_offset_input = offset.to_string();
 			Task::none()
 		}
 	}
@@ -247,7 +261,7 @@ fn view(state: &AppState) -> Element<'_, Message> {
 		kernel: state.kernel.as_ref(),
 		title: state.current_plot_type.to_string(),
 		padding: 50.0,
-		legend_settings: state.legend_settings,
+		settings: state.plot_settings,
 	})
 	.width(Length::Fill)
 	.height(Length::Fill);
@@ -281,14 +295,14 @@ fn view(state: &AppState) -> Element<'_, Message> {
 			Message::ChangePlotType
 		),
 		text("Legend Rows:"),
-		text_input("", &state.max_rows_input)
+		text_input("", &state.max_legend_rows_input)
 			.on_input(|s| {
 				if let Ok(rows) = s.parse::<u32>() {
 					Message::SetMaxLegendRows(rows)
 				} else if s.is_empty() {
 					Message::SetMaxLegendRows(0)
 				} else {
-					Message::UpdateHover(state.hovered_info.clone()) // No-op message
+					Message::UpdateHover(state.hovered_info.clone())
 				}
 			})
 			.width(50),
@@ -307,6 +321,26 @@ fn view(state: &AppState) -> Element<'_, Message> {
 			.on_input(|s| {
 				if let Ok(y) = s.parse::<f32>() {
 					Message::SetLegendY(y)
+				} else {
+					Message::UpdateHover(state.hovered_info.clone())
+				}
+			})
+			.width(60),
+		text("Angle:"),
+		text_input("", &state.x_rotation_input)
+			.on_input(|s| {
+				if let Ok(deg) = s.parse::<f32>() {
+					Message::SetXRotation(deg)
+				} else {
+					Message::UpdateHover(state.hovered_info.clone())
+				}
+			})
+			.width(60),
+		text("Offset:"),
+		text_input("", &state.x_offset_input)
+			.on_input(|s| {
+				if let Ok(offset) = s.parse::<f32>() {
+					Message::SetXOffset(offset)
 				} else {
 					Message::UpdateHover(state.hovered_info.clone())
 				}

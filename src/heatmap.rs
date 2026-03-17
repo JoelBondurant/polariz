@@ -31,7 +31,7 @@ impl PlotKernel for HeatmapPlotKernel {
 		for i in 0..num_x {
 			for j in 0..num_y {
 				let val = self.prepared_data.values[i][j];
-				let t = if max_val > 0.0 { val / max_val } else { 0.0 };
+				let t = if max_val > 0.0 { (val / max_val) as f32 } else { 0.0 };
 				let color = colors::viridis(t);
 				let (center, bw, bh) = transform.categorical_2d(i, j);
 				let rect_x = center.x - bw / 2.0;
@@ -81,14 +81,14 @@ impl PlotKernel for HeatmapPlotKernel {
 		&self,
 		frame: &mut Frame,
 		bounds: Rectangle,
-		settings: crate::plot::LegendSettings,
+		settings: crate::plot::PlotSettings,
 	) {
 		let max_val = self.prepared_data.max_val;
 		let legend_width = 60.0;
 		let legend_height = 200.0;
 		let legend_padding = 10.0;
-		let x = bounds.x + (bounds.width - legend_width) * settings.position_x;
-		let y = bounds.y + (bounds.height - legend_height) * settings.position_y;
+		let x = bounds.x + (bounds.width - legend_width) * settings.legend_x;
+		let y = bounds.y + (bounds.height - legend_height) * settings.legend_y;
 		frame.fill_rectangle(
 			Point::new(x, y),
 			Size::new(legend_width, legend_height),
@@ -106,7 +106,7 @@ impl PlotKernel for HeatmapPlotKernel {
 			let step_y = bar_y + bar_height - (i as f32 + 1.0) * step_height;
 			frame.fill_rectangle(
 				Point::new(bar_x, step_y),
-				Size::new(bar_width, step_height + 0.5),
+				iced::Size::new(bar_width, step_height + 0.5),
 				color,
 			);
 		}
@@ -152,8 +152,8 @@ impl PlotKernel for HeatmapPlotKernel {
 pub struct HeatmapPreparedData {
 	pub x_categories: Vec<String>,
 	pub y_categories: Vec<String>,
-	pub values: Vec<Vec<f32>>,
-	pub max_val: f32,
+	pub values: Vec<Vec<f64>>,
+	pub max_val: f64,
 	pub x_label: String,
 	pub y_label: String,
 }
@@ -190,8 +190,8 @@ pub fn prepare_heatmap_data(
 		.collect();
 	let num_x = x_categories.len();
 	let num_y = y_categories.len();
-	let mut values = vec![vec![0.0f32; num_y]; num_x];
-	let mut max_val = 0.0f32;
+	let mut values = vec![vec![0.0f64; num_y]; num_x];
+	let mut max_val = 0.0f64;
 	let x_to_idx: std::collections::HashMap<String, usize> = x_categories
 		.iter()
 		.enumerate()
@@ -205,9 +205,9 @@ pub fn prepare_heatmap_data(
 	let binding_val = df
 		.column(val_col)
 		.unwrap()
-		.cast(&DataType::Float32)
+		.cast(&DataType::Float64)
 		.unwrap();
-	let p_val = binding_val.f32().unwrap();
+	let p_val = binding_val.f64().unwrap();
 	let p_x = df.column(x_col).unwrap();
 	let p_y = df.column(y_col).unwrap();
 	for i in 0..df.height() {
@@ -245,7 +245,7 @@ pub fn generate_sample_heatmap_data() -> DataFrame {
 			xs.push(x_label.clone());
 			ys.push(y_label);
 			let val = ((i as f32 / 5.0).cos() + (j as f32 / 3.0).sin()).abs() * 10.0;
-			vals.push(val);
+			vals.push(val as f64);
 		}
 	}
 	DataFrame::new(

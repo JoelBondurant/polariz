@@ -44,8 +44,8 @@ impl PlotKernel for ParallelPlotKernel {
 				..Default::default()
 			};
 			let path = Path::new(|builder| {
-				for (d, val) in row_data.iter().enumerate() {
-					let (p, _) = transform.categorical(d, *val);
+				for (d, &val) in row_data.iter().enumerate() {
+					let (p, _) = transform.categorical(d, val);
 					if d == 0 {
 						builder.move_to(p);
 					} else {
@@ -61,13 +61,13 @@ impl PlotKernel for ParallelPlotKernel {
 		&self,
 		frame: &mut Frame,
 		bounds: Rectangle,
-		settings: crate::plot::LegendSettings,
+		settings: crate::plot::PlotSettings,
 	) {
 		let num_cats = self.prepared_data.category_names.len();
 		if num_cats == 0 {
 			return;
 		}
-		let max_rows = settings.max_rows.max(1) as usize;
+		let max_rows = settings.max_legend_rows.max(1) as usize;
 		let num_cols = num_cats.div_ceil(max_rows);
 		let actual_rows = num_cats.min(max_rows);
 		let item_height = 25.0;
@@ -76,8 +76,8 @@ impl PlotKernel for ParallelPlotKernel {
 		let col_width = 150.0;
 		let legend_width = num_cols as f32 * col_width + legend_padding * 2.0;
 		let legend_height = actual_rows as f32 * item_height + legend_padding * 2.0;
-		let x = bounds.x + (bounds.width - legend_width) * settings.position_x;
-		let y = bounds.y + (bounds.height - legend_height) * settings.position_y;
+		let x = bounds.x + (bounds.width - legend_width) * settings.legend_x;
+		let y = bounds.y + (bounds.height - legend_height) * settings.legend_y;
 		frame.fill_rectangle(
 			iced::Point::new(x, y),
 			iced::Size::new(legend_width, legend_height),
@@ -123,8 +123,8 @@ impl PlotKernel for ParallelPlotKernel {
 			if axis_idx >= 0 && (axis_idx as usize) < num_dims {
 				let i = axis_idx as usize;
 				let range = self.prepared_data.ranges[i];
-				let y_scale = (range.1 - range.0) / transform.bounds.height;
-				let val = range.1 - (cursor_pos.y - transform.bounds.y) * y_scale;
+				let y_scale = (range.1 - range.0) / transform.bounds.height as f64;
+				let val = range.1 - (cursor_pos.y - transform.bounds.y) as f64 * y_scale;
 				return Some(format!("{}: {:.2}", self.prepared_data.dimensions[i], val));
 			}
 		}
@@ -142,8 +142,8 @@ impl PlotKernel for ParallelPlotKernel {
 
 pub struct ParallelPreparedData {
 	pub dimensions: Vec<String>,
-	pub ranges: Vec<(f32, f32)>,
-	pub data_matrix: Vec<Vec<f32>>,
+	pub ranges: Vec<(f64, f64)>,
+	pub data_matrix: Vec<Vec<f64>>,
 	pub row_categories: Vec<usize>,
 	pub category_names: Vec<String>,
 	pub num_categories: usize,
@@ -158,8 +158,8 @@ pub fn prepare_parallel_data(
 	let mut ranges = Vec::with_capacity(num_dims);
 	let mut dim_columns = Vec::with_capacity(num_dims);
 	for dim in dims {
-		let col = df.column(dim).unwrap().cast(&DataType::Float32).unwrap();
-		let series = col.f32().unwrap().clone();
+		let col = df.column(dim).unwrap().cast(&DataType::Float64).unwrap();
+		let series = col.f64().unwrap().clone();
 		let min = series.min().unwrap_or(0.0);
 		let max = series.max().unwrap_or(1.0);
 		ranges.push((min, max));
@@ -195,7 +195,6 @@ pub fn prepare_parallel_data(
 			row.push(dim_col.get(i).unwrap());
 		}
 		data_matrix.push(row);
-
 		let cat_val_raw = cat_vals.get(i).unwrap();
 		let cat_val_str = if let AnyValue::String(s) = cat_val_raw {
 			s.to_string()
@@ -227,22 +226,22 @@ pub fn generate_sample_parallel_data() -> DataFrame {
 		cats.push(format!("Group {}", group));
 		match group {
 			0 => {
-				d1.push(rng.random_range(0.0..1.0f32));
-				d2.push(rng.random_range(5.0..6.0f32));
-				d3.push(rng.random_range(2.0..3.0f32));
-				d4.push(rng.random_range(8.0..9.0f32));
+				d1.push(rng.random_range(0.0..1.0f64));
+				d2.push(rng.random_range(5.0..6.0f64));
+				d3.push(rng.random_range(2.0..3.0f64));
+				d4.push(rng.random_range(8.0..9.0f64));
 			}
 			1 => {
-				d1.push(rng.random_range(5.0..6.0f32));
-				d2.push(rng.random_range(0.0..2.0f32));
-				d3.push(rng.random_range(6.0..8.0f32));
-				d4.push(rng.random_range(7.0..7.3f32));
+				d1.push(rng.random_range(5.0..6.0f64));
+				d2.push(rng.random_range(0.0..2.0f64));
+				d3.push(rng.random_range(6.0..8.0f64));
+				d4.push(rng.random_range(7.0..7.3f64));
 			}
 			_ => {
-				d1.push(rng.random_range(3.0..3.2f32));
-				d2.push(rng.random_range(3.0..3.5f32));
-				d3.push(rng.random_range(6.0..6.8f32));
-				d4.push(rng.random_range(9.0..9.2f32));
+				d1.push(rng.random_range(3.0..3.2f64));
+				d2.push(rng.random_range(3.0..3.5f64));
+				d3.push(rng.random_range(6.0..6.8f64));
+				d4.push(rng.random_range(9.0..9.2f64));
 			}
 		}
 	}

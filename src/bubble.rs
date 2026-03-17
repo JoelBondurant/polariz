@@ -1,5 +1,5 @@
 use crate::colors;
-use crate::plot::{CoordinateTransformer, LegendSettings, PlotKernel, PlotLayout};
+use crate::plot::{CoordinateTransformer, PlotSettings, PlotKernel, PlotLayout, AxisType, polars_type_to_axis_type};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{Frame, Path, Stroke, Style, Text};
 use iced::{Color, Pixels, Point, Rectangle};
@@ -13,10 +13,12 @@ pub struct BubblePlotKernel {
 
 pub struct BubblePreparedData {
 	pub points: Vec<BubblePoint>,
-	pub x_range: (f32, f32),
-	pub y_range: (f32, f32),
-	pub size_range: (f32, f32),
-	pub color_range: (f32, f32),
+	pub x_range: (f64, f64),
+	pub y_range: (f64, f64),
+	pub x_axis_type: AxisType,
+	pub y_axis_type: AxisType,
+	pub size_range: (f64, f64),
+	pub color_range: (f64, f64),
 	pub x_label: String,
 	pub y_label: String,
 	pub size_label: String,
@@ -24,10 +26,10 @@ pub struct BubblePreparedData {
 }
 
 pub struct BubblePoint {
-	pub x: f32,
-	pub y: f32,
-	pub size_val: f32,
-	pub color_val: f32,
+	pub x: f64,
+	pub y: f64,
+	pub size_val: f64,
+	pub color_val: f64,
 	pub label: String,
 }
 
@@ -36,6 +38,8 @@ impl PlotKernel for BubblePlotKernel {
 		PlotLayout::Cartesian {
 			x_range: self.prepared_data.x_range,
 			y_range: self.prepared_data.y_range,
+			x_axis_type: self.prepared_data.x_axis_type,
+			y_axis_type: self.prepared_data.y_axis_type,
 		}
 	}
 
@@ -48,15 +52,15 @@ impl PlotKernel for BubblePlotKernel {
 	) {
 		let color_min = self.prepared_data.color_range.0;
 		let color_max = self.prepared_data.color_range.1;
-		let color_delta = (color_max - color_min).max(f32::EPSILON);
+		let color_delta = (color_max - color_min).max(f64::EPSILON);
 		let size_min = self.prepared_data.size_range.0;
 		let size_max = self.prepared_data.size_range.1;
-		let size_delta = (size_max - size_min).max(f32::EPSILON);
+		let size_delta = (size_max - size_min).max(f64::EPSILON);
 		for point in &self.prepared_data.points {
 			let p = transform.cartesian(point.x, point.y);
-			let t_color = (point.color_val - color_min) / color_delta;
+			let t_color = ((point.color_val - color_min) / color_delta) as f32;
 			let color = colors::viridis(t_color);
-			let t_size = (point.size_val - size_min) / size_delta;
+			let t_size = ((point.size_val - size_min) / size_delta) as f32;
 			let radius = 2.0 + t_size * 28.0;
 			let circle = Path::circle(p, radius);
 			frame.fill(&circle, Color { a: 0.7, ..color });
@@ -71,7 +75,7 @@ impl PlotKernel for BubblePlotKernel {
 		}
 	}
 
-	fn draw_legend(&self, frame: &mut Frame, bounds: Rectangle, settings: LegendSettings) {
+	fn draw_legend(&self, frame: &mut Frame, bounds: Rectangle, settings: PlotSettings) {
 		let color_min = self.prepared_data.color_range.0;
 		let color_max = self.prepared_data.color_range.1;
 		let size_min = self.prepared_data.size_range.0;
@@ -79,8 +83,8 @@ impl PlotKernel for BubblePlotKernel {
 		let legend_width = 250.0;
 		let legend_height = 240.0;
 		let legend_padding = 20.0;
-		let x = bounds.x + (bounds.width - legend_width) * settings.position_x;
-		let y = bounds.y + (bounds.height - legend_height) * settings.position_y;
+		let x = bounds.x + (bounds.width - legend_width) * settings.legend_x;
+		let y = bounds.y + (bounds.height - legend_height) * settings.legend_y;
 		frame.fill_rectangle(
 			Point::new(x, y),
 			iced::Size::new(legend_width, legend_height),
@@ -144,7 +148,7 @@ impl PlotKernel for BubblePlotKernel {
 		let min_radius = 2.0;
 		for i in 0..num_samples {
 			let t = i as f32 / (num_samples - 1) as f32;
-			let val = size_min + (size_max - size_min) * t;
+			let val = size_min + (size_max - size_min) * t as f64;
 			let radius = min_radius + t * (max_radius - min_radius);
 			let sample_y =
 				(bar_y + bar_height - min_radius) - t * (bar_height - max_radius - min_radius);
@@ -174,20 +178,20 @@ impl PlotKernel for BubblePlotKernel {
 		if let Some(cursor_pos) = cursor.position() {
 			let size_min = self.prepared_data.size_range.0;
 			let size_max = self.prepared_data.size_range.1;
-			let size_delta = (size_max - size_min).max(f32::EPSILON);
+			let size_delta = (size_max - size_min).max(f64::EPSILON);
 			for point in &self.prepared_data.points {
 				let p = transform.cartesian(point.x, point.y);
 				let dx = cursor_pos.x - p.x;
 				let dy = cursor_pos.y - p.y;
 				let dist_sq = dx * dx + dy * dy;
-				let t_size = (point.size_val - size_min) / size_delta;
+				let t_size = ((point.size_val - size_min) / size_delta) as f32;
 				let radius = 2.0 + t_size * 28.0;
 				if dist_sq <= radius * radius {
 					return Some(format!(
-						"{}\n{}: {:.2}\n{}: {:.2}\n{}: {:.2}\n{}: {:.2}",
+						"{}\n{}: {}\n{}: {:.2}\n{}: {:.2}\n{}: {:.2}",
 						point.label,
 						self.prepared_data.x_label,
-						point.x,
+						crate::plot::format_label(point.x, self.prepared_data.x_axis_type),
 						self.prepared_data.y_label,
 						point.y,
 						self.prepared_data.size_label,
@@ -218,28 +222,33 @@ pub fn prepare_bubble_data(
 	color_col: &str,
 	label_col: Option<&str>,
 ) -> BubblePreparedData {
-	let xs = df.column(x_col).unwrap().cast(&DataType::Float32).unwrap();
-	let ys = df.column(y_col).unwrap().cast(&DataType::Float32).unwrap();
+	let x_dtype = df.column(x_col).unwrap().dtype();
+	let y_dtype = df.column(y_col).unwrap().dtype();
+	let x_axis_type = polars_type_to_axis_type(x_dtype);
+	let y_axis_type = polars_type_to_axis_type(y_dtype);
+
+	let xs = df.column(x_col).unwrap().cast(&DataType::Float64).unwrap();
+	let ys = df.column(y_col).unwrap().cast(&DataType::Float64).unwrap();
 	let sizes = df
 		.column(size_col)
 		.unwrap()
-		.cast(&DataType::Float32)
+		.cast(&DataType::Float64)
 		.unwrap();
 	let colors_col = df
 		.column(color_col)
 		.unwrap()
-		.cast(&DataType::Float32)
+		.cast(&DataType::Float64)
 		.unwrap();
-	let x_f32 = xs.f32().unwrap();
-	let y_f32 = ys.f32().unwrap();
-	let size_f32 = sizes.f32().unwrap();
-	let color_f32 = colors_col.f32().unwrap();
-	let x_range = (x_f32.min().unwrap_or(0.0), x_f32.max().unwrap_or(1.0));
-	let y_range = (y_f32.min().unwrap_or(0.0), y_f32.max().unwrap_or(1.0));
-	let size_range = (size_f32.min().unwrap_or(0.0), size_f32.max().unwrap_or(1.0));
+	let x_f64 = xs.f64().unwrap();
+	let y_f64 = ys.f64().unwrap();
+	let size_f64 = sizes.f64().unwrap();
+	let color_f64 = colors_col.f64().unwrap();
+	let x_range = (x_f64.min().unwrap_or(0.0), x_f64.max().unwrap_or(1.0));
+	let y_range = (y_f64.min().unwrap_or(0.0), y_f64.max().unwrap_or(1.0));
+	let size_range = (size_f64.min().unwrap_or(0.0), size_f64.max().unwrap_or(1.0));
 	let color_range = (
-		color_f32.min().unwrap_or(0.0),
-		color_f32.max().unwrap_or(1.0),
+		color_f64.min().unwrap_or(0.0),
+		color_f64.max().unwrap_or(1.0),
 	);
 	let x_pad = (x_range.1 - x_range.0).max(0.1) * 0.1;
 	let y_pad = (y_range.1 - y_range.0).max(0.1) * 0.1;
@@ -262,10 +271,10 @@ pub fn prepare_bubble_data(
 	let mut points = Vec::with_capacity(df.height());
 	for i in 0..df.height() {
 		points.push(BubblePoint {
-			x: x_f32.get(i).unwrap(),
-			y: y_f32.get(i).unwrap(),
-			size_val: size_f32.get(i).unwrap(),
-			color_val: color_f32.get(i).unwrap(),
+			x: x_f64.get(i).unwrap(),
+			y: y_f64.get(i).unwrap(),
+			size_val: size_f64.get(i).unwrap(),
+			color_val: color_f64.get(i).unwrap(),
 			label: labels[i].clone(),
 		});
 	}
@@ -273,6 +282,8 @@ pub fn prepare_bubble_data(
 		points,
 		x_range: (x_range.0 - x_pad, x_range.1 + x_pad),
 		y_range: (y_range.0 - y_pad, y_range.1 + y_pad),
+		x_axis_type,
+		y_axis_type,
 		size_range,
 		color_range,
 		x_label: x_col.to_string(),

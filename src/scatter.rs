@@ -1,5 +1,5 @@
 use crate::colors;
-use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout};
+use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout, AxisType, polars_type_to_axis_type};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{Frame, Path};
 use iced::{Color, Rectangle};
@@ -16,6 +16,8 @@ impl PlotKernel for ScatterPlotKernel {
 		PlotLayout::Cartesian {
 			x_range: self.prepared_data.x_range,
 			y_range: self.prepared_data.y_range,
+			x_axis_type: self.prepared_data.x_axis_type,
+			y_axis_type: self.prepared_data.y_axis_type,
 		}
 	}
 
@@ -38,10 +40,10 @@ impl PlotKernel for ScatterPlotKernel {
 		}
 	}
 
-	fn draw_legend(&self, frame: &mut Frame, bounds: Rectangle, settings: crate::plot::LegendSettings) {
+	fn draw_legend(&self, frame: &mut Frame, bounds: Rectangle, settings: crate::plot::PlotSettings) {
 		let num_series = self.prepared_data.series.len();
 		if num_series == 0 { return; }
-		let max_rows = settings.max_rows.max(1) as usize;
+		let max_rows = settings.max_legend_rows.max(1) as usize;
 		let num_cols = num_series.div_ceil(max_rows);
 		let actual_rows = num_series.min(max_rows);
 		let item_height = 25.0;
@@ -50,8 +52,8 @@ impl PlotKernel for ScatterPlotKernel {
 		let col_width = 150.0;
 		let legend_width = num_cols as f32 * col_width + legend_padding * 2.0;
 		let legend_height = actual_rows as f32 * item_height + legend_padding * 2.0;
-		let x = bounds.x + (bounds.width - legend_width) * settings.position_x;
-		let y = bounds.y + (bounds.height - legend_height) * settings.position_y;
+		let x = bounds.x + (bounds.width - legend_width) * settings.legend_x;
+		let y = bounds.y + (bounds.height - legend_height) * settings.legend_y;
 		frame.fill_rectangle(
 			iced::Point::new(x, y),
 			iced::Size::new(legend_width, legend_height),
@@ -83,7 +85,9 @@ impl PlotKernel for ScatterPlotKernel {
 	fn hover(&self, transform: &CoordinateTransformer, cursor: Cursor) -> Option<String> {
 		if let Some(cursor_pos) = cursor.position()
 			&& let Some((x, y)) = transform.pixel_to_cartesian(cursor_pos) {
-			return Some(format!("X: {:.2}, Y: {:.2}", x, y));
+			return Some(format!("X: {}, Y: {}", 
+				crate::plot::format_label(x, self.prepared_data.x_axis_type),
+				crate::plot::format_label(y, self.prepared_data.y_axis_type)));
 		}
 		None
 	}
@@ -99,24 +103,30 @@ impl PlotKernel for ScatterPlotKernel {
 
 pub struct ScatterSeries {
 	pub name: String,
-	pub points: Vec<[f32; 2]>,
+	pub points: Vec<[f64; 2]>,
 	pub color_t: f32,
 }
 
 pub struct ScatterPreparedData {
 	pub series: Vec<ScatterSeries>,
-	pub x_range: (f32, f32),
-	pub y_range: (f32, f32),
+	pub x_range: (f64, f64),
+	pub y_range: (f64, f64),
+	pub x_axis_type: AxisType,
+	pub y_axis_type: AxisType,
 	pub point_size_px: f32,
 	pub x_label: String,
 	pub y_label: String,
 }
 
 pub fn prepare_scatter_data(df: &DataFrame, cat_col: &str, x_col: &str, y_col: &str, point_size_px: f32) -> ScatterPreparedData {
-	let x_col_series = df.column(x_col).unwrap().cast(&DataType::Float32).unwrap();
-	let y_col_series = df.column(y_col).unwrap().cast(&DataType::Float32).unwrap();
-	let x_series = x_col_series.f32().unwrap();
-	let y_series = y_col_series.f32().unwrap();
+	let x_dtype = df.column(x_col).unwrap().dtype();
+	let y_dtype = df.column(y_col).unwrap().dtype();
+	let x_axis_type = polars_type_to_axis_type(x_dtype);
+	let y_axis_type = polars_type_to_axis_type(y_dtype);
+	let x_col_series = df.column(x_col).unwrap().cast(&DataType::Float64).unwrap();
+	let y_col_series = df.column(y_col).unwrap().cast(&DataType::Float64).unwrap();
+	let x_series = x_col_series.f64().unwrap();
+	let y_series = y_col_series.f64().unwrap();
 	let x_range = (x_series.min().unwrap_or(0.0), x_series.max().unwrap_or(1.0));
 	let y_range = (y_series.min().unwrap_or(0.0), y_series.max().unwrap_or(1.0));
 	let x_pad = (x_range.1 - x_range.0).max(0.001) * 0.1;
@@ -133,10 +143,10 @@ pub fn prepare_scatter_data(df: &DataFrame, cat_col: &str, x_col: &str, y_col: &
 		} else {
 			cat_val.to_string().replace("\"", "")
 		};
-		let xs_col = group_df.column(x_col).unwrap().cast(&DataType::Float32).unwrap();
-		let ys_col = group_df.column(y_col).unwrap().cast(&DataType::Float32).unwrap();
-		let xs = xs_col.f32().unwrap();
-		let ys = ys_col.f32().unwrap();
+		let xs_col = group_df.column(x_col).unwrap().cast(&DataType::Float64).unwrap();
+		let ys_col = group_df.column(y_col).unwrap().cast(&DataType::Float64).unwrap();
+		let xs = xs_col.f64().unwrap();
+		let ys = ys_col.f64().unwrap();
 		let t = if num_partitions > 1 {
 			i as f32 / (num_partitions - 1) as f32
 		} else {
@@ -148,11 +158,12 @@ pub fn prepare_scatter_data(df: &DataFrame, cat_col: &str, x_col: &str, y_col: &
 		}
 		series_list.push(ScatterSeries { name: cat_name, points, color_t: t });
 	}
-
 	ScatterPreparedData {
 		series: series_list,
 		x_range,
 		y_range,
+		x_axis_type,
+		y_axis_type,
 		point_size_px,
 		x_label: x_col.to_string(),
 		y_label: y_col.to_string(),

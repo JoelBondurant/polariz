@@ -30,7 +30,7 @@ impl PlotKernel for ViolinPlotKernel {
 		let num_violins = self.prepared_data.categories.len();
 		let tex_height_bins = self.prepared_data.tex_height_bins;
 		let (y_min, y_max) = self.prepared_data.y_range;
-		let y_step = (y_max - y_min) / (tex_height_bins as f32 - 1.0);
+		let y_step = (y_max - y_min) / (tex_height_bins as f64 - 1.0);
 		for i in 0..num_violins {
 			let (_center, band_width) = transform.categorical(i, 0.0);
 			let width_scale = band_width * 0.4;
@@ -53,7 +53,7 @@ impl PlotKernel for ViolinPlotKernel {
 			if first_bin >= last_bin { continue; }
 			let violin_path = Path::new(|builder| {
 				for bin in first_bin..=last_bin {
-					let data_y = y_min + bin as f32 * y_step;
+					let data_y = y_min + bin as f64 * y_step;
 					let density = self.prepared_data.kde_data[i * tex_height_bins + bin];
 					let (p, _) = transform.categorical(i, data_y);
 					if bin == first_bin {
@@ -63,7 +63,7 @@ impl PlotKernel for ViolinPlotKernel {
 					}
 				}
 				for bin in (first_bin..=last_bin).rev() {
-					let data_y = y_min + bin as f32 * y_step;
+					let data_y = y_min + bin as f64 * y_step;
 					let density = self.prepared_data.kde_data[i * tex_height_bins + bin];
 					let (p, _) = transform.categorical(i, data_y);
 					builder.line_to(iced::Point::new(p.x + density * width_scale, p.y));
@@ -80,7 +80,7 @@ impl PlotKernel for ViolinPlotKernel {
 			frame.stroke(&violin_path, border_stroke);
 			if let Some(&median_val) = self.prepared_data.medians.get(i) {
 				let (median_px, _) = transform.categorical(i, median_val);
-				let bin_idx = (((median_val - y_min) / (y_max - y_min)) * (tex_height_bins as f32 - 1.0))
+				let bin_idx = (((median_val - y_min) / (y_max - y_min)) * (tex_height_bins as f64 - 1.0))
 					.floor() as usize;
 				let bin_idx = bin_idx.min(tex_height_bins - 1);
 				let density = self.prepared_data.kde_data[i * tex_height_bins + bin_idx];
@@ -117,10 +117,10 @@ impl PlotKernel for ViolinPlotKernel {
 		}
 	}
 
-	fn draw_legend(&self, frame: &mut Frame, bounds: Rectangle, settings: crate::plot::LegendSettings) {
+	fn draw_legend(&self, frame: &mut Frame, bounds: Rectangle, settings: crate::plot::PlotSettings) {
 		let num_cats = self.prepared_data.categories.len();
 		if num_cats == 0 { return; }
-		let max_rows = settings.max_rows.max(1) as usize;
+		let max_rows = settings.max_legend_rows.max(1) as usize;
 		let num_cols = num_cats.div_ceil(max_rows);
 		let actual_rows = num_cats.min(max_rows);
 		let item_height = 25.0;
@@ -129,8 +129,8 @@ impl PlotKernel for ViolinPlotKernel {
 		let col_width = 150.0;
 		let legend_width = num_cols as f32 * col_width + legend_padding * 2.0;
 		let legend_height = actual_rows as f32 * item_height + legend_padding * 2.0;
-		let x = bounds.x + (bounds.width - legend_width) * settings.position_x;
-		let y = bounds.y + (bounds.height - legend_height) * settings.position_y;
+		let x = bounds.x + (bounds.width - legend_width) * settings.legend_x;
+		let y = bounds.y + (bounds.height - legend_height) * settings.legend_y;
 		frame.fill_rectangle(
 			iced::Point::new(x, y),
 			iced::Size::new(legend_width, legend_height),
@@ -187,33 +187,33 @@ impl PlotKernel for ViolinPlotKernel {
 
 pub struct ViolinPreparedData {
 	pub categories: Vec<String>,
-	pub y_range: (f32, f32),
-	pub medians: Vec<f32>,
-	pub kde_data: Vec<f32>, // [violin_idx * tex_height_bins + bin_idx]
+	pub y_range: (f64, f64),
+	pub medians: Vec<f64>,
+	pub kde_data: Vec<f32>,
 	pub tex_height_bins: usize,
 	pub x_label: String,
 	pub y_label: String,
 }
 
 fn compute_kde(
-	y_vals: &[f32],
+	y_vals: &[f64],
 	num_bins: usize,
-	y_min: f32,
-	y_max: f32,
-	bandwidth: f32,
+	y_min: f64,
+	y_max: f64,
+	bandwidth: f64,
 ) -> Vec<f32> {
 	let mut density = vec![0.0; num_bins];
-	let step = (y_max - y_min) / (num_bins as f32 - 1.0);
+	let step = (y_max - y_min) / (num_bins as f64 - 1.0);
 	let inv_bw = 1.0 / bandwidth;
-	let norm_factor = 1.0 / (y_vals.len() as f32 * bandwidth * (2.0 * std::f32::consts::PI).sqrt());
+	let norm_factor = 1.0 / (y_vals.len() as f64 * bandwidth * (2.0 * std::f64::consts::PI).sqrt());
 	for (i, d) in density.iter_mut().enumerate() {
-		let y = y_min + (i as f32) * step;
+		let y = y_min + (i as f64) * step;
 		let mut sum = 0.0;
 		for &val in y_vals {
 			let diff = (y - val) * inv_bw;
 			sum += (-0.5 * diff * diff).exp();
 		}
-		*d = sum * norm_factor;
+		*d = (sum * norm_factor) as f32;
 	}
 	let max_d = density.iter().cloned().fold(f32::MIN, f32::max);
 	if max_d > 0.0 {
@@ -228,7 +228,7 @@ pub fn prepare_violin_data(
 	df: &DataFrame,
 	cat_col: &str,
 	val_col: &str,
-	manual_range: Option<(f32, f32)>,
+	manual_range: Option<(f64, f64)>,
 ) -> ViolinPreparedData {
 	let (y_min, y_max) = match manual_range {
 		Some(r) => r,
@@ -237,9 +237,10 @@ pub fn prepare_violin_data(
 				.column(val_col)
 				.unwrap()
 				.as_materialized_series()
-				.f32()
+				.cast(&DataType::Float64)
 				.unwrap();
-			let (y_min, y_max) = (col.min().unwrap(), col.max().unwrap());
+			let col_f64 = col.f64().unwrap();
+			let (y_min, y_max) = (col_f64.min().unwrap(), col_f64.max().unwrap());
 			let pad = (y_max - y_min) * 0.1;
 			(y_min - pad, y_max + pad)
 		}
@@ -260,8 +261,9 @@ pub fn prepare_violin_data(
 		.column("median")
 		.unwrap()
 		.as_materialized_series()
-		.f32()
+		.cast(&DataType::Float64)
 		.unwrap();
+	let medians_f64 = medians_series.f64().unwrap();
 	let values_list = group_data
 		.column("values")
 		.unwrap()
@@ -280,9 +282,9 @@ pub fn prepare_violin_data(
 	let mut kde_data = vec![0.0f32; num_violins * tex_height_bins];
 	let mut medians = Vec::with_capacity(num_violins);
 	for i in 0..num_violins {
-		medians.push(medians_series.get(i).unwrap());
+		medians.push(medians_f64.get(i).unwrap());
 		let series = values_list.get_as_series(i).unwrap();
-		let y_slice: Vec<f32> = series.f32().unwrap().into_no_null_iter().collect();
+		let y_slice: Vec<f64> = series.cast(&DataType::Float64).unwrap().f64().unwrap().into_no_null_iter().collect();
 		let bandwidth = (y_max - y_min) * 0.03;
 		let density = compute_kde(&y_slice, tex_height_bins, y_min, y_max, bandwidth);
 		for bin in 0..tex_height_bins {
@@ -330,7 +332,7 @@ pub fn generate_sample_data() -> DataFrame {
 					.unwrap()
 					.sample(&mut rng),
 			};
-			ys.push(val);
+			ys.push(val as f64);
 		}
 	}
 	DataFrame::new(

@@ -1,5 +1,5 @@
 use crate::colors;
-use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout};
+use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout, AxisType, polars_type_to_axis_type};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{Frame, Path, Stroke, Style};
 use iced::{Color, Rectangle};
@@ -17,6 +17,8 @@ impl PlotKernel for StackedAreaPlotKernel {
 		PlotLayout::Cartesian {
 			x_range: self.prepared_data.x_range,
 			y_range: self.prepared_data.y_range,
+			x_axis_type: self.prepared_data.x_axis_type,
+			y_axis_type: self.prepared_data.y_axis_type,
 		}
 	}
 
@@ -30,8 +32,8 @@ impl PlotKernel for StackedAreaPlotKernel {
 		let num_cats = self.prepared_data.categories.len();
 		let num_xs = self.prepared_data.unique_xs.len();
 		if num_xs < 2 { return; }
-		let mut prev_stacked_ys = vec![0.0f32; num_xs];
-		let mut current_stacked_ys = vec![0.0f32; num_xs];
+		let mut prev_stacked_ys = vec![0.0f64; num_xs];
+		let mut current_stacked_ys = vec![0.0f64; num_xs];
 		for cat_idx in 0..num_cats {
 			let t = if num_cats > 1 { cat_idx as f32 / (num_cats - 1) as f32 } else { 0.5 };
 			let color = colors::viridis(t);
@@ -85,21 +87,24 @@ impl PlotKernel for StackedAreaPlotKernel {
 				let val = cat_vals[idx];
 				if y >= current_stack_y && y <= current_stack_y + val {
 					return Some(format!(
-						"X: {:.2}\n{}: {:.2}\nTotal: {:.2}",
-						actual_x, self.prepared_data.categories[j], val, current_stack_y + val
+						"X: {}\n{}: {:.2}\nTotal: {:.2}",
+						crate::plot::format_label(actual_x, self.prepared_data.x_axis_type),
+						self.prepared_data.categories[j], val, current_stack_y + val
 					));
 				}
 				current_stack_y += val;
 			}
-			return Some(format!("X: {:.2}, Total Sum: {:.2}", actual_x, current_stack_y));
+			return Some(format!("X: {}, Total Sum: {:.2}", 
+				crate::plot::format_label(actual_x, self.prepared_data.x_axis_type),
+				current_stack_y));
 		}
 		None
 	}
 
-	fn draw_legend(&self, frame: &mut Frame, bounds: Rectangle, settings: crate::plot::LegendSettings) {
+	fn draw_legend(&self, frame: &mut Frame, bounds: Rectangle, settings: crate::plot::PlotSettings) {
 		let num_cats = self.prepared_data.categories.len();
 		if num_cats == 0 { return; }
-		let max_rows = settings.max_rows.max(1) as usize;
+		let max_rows = settings.max_legend_rows.max(1) as usize;
 		let num_cols = num_cats.div_ceil(max_rows);
 		let actual_rows = num_cats.min(max_rows);
 		let item_height = 25.0;
@@ -108,8 +113,8 @@ impl PlotKernel for StackedAreaPlotKernel {
 		let col_width = 150.0;
 		let legend_width = num_cols as f32 * col_width + legend_padding * 2.0;
 		let legend_height = actual_rows as f32 * item_height + legend_padding * 2.0;
-		let x = bounds.x + (bounds.width - legend_width) * settings.position_x;
-		let y = bounds.y + (bounds.height - legend_height) * settings.position_y;
+		let x = bounds.x + (bounds.width - legend_width) * settings.legend_x;
+		let y = bounds.y + (bounds.height - legend_height) * settings.legend_y;
 		frame.fill_rectangle(
 			iced::Point::new(x, y),
 			iced::Size::new(legend_width, legend_height),
@@ -150,22 +155,28 @@ impl PlotKernel for StackedAreaPlotKernel {
 
 pub struct StackedAreaPreparedData {
 	pub categories: Vec<String>,
-	pub unique_xs: Vec<f32>,
-	pub category_values: Vec<Vec<f32>>,
-	pub x_range: (f32, f32),
-	pub y_range: (f32, f32),
+	pub unique_xs: Vec<f64>,
+	pub category_values: Vec<Vec<f64>>,
+	pub x_range: (f64, f64),
+	pub y_range: (f64, f64),
+	pub x_axis_type: AxisType,
+	pub y_axis_type: AxisType,
 	pub x_label: String,
 	pub y_label: String,
 }
 
 pub fn prepare_stacked_area_data(df: &DataFrame, cat_col: &str, x_col: &str, y_col: &str) -> StackedAreaPreparedData {
+	let x_dtype = df.column(x_col).unwrap().dtype();
+	let y_dtype = df.column(y_col).unwrap().dtype();
+	let x_axis_type = polars_type_to_axis_type(x_dtype);
+	let y_axis_type = polars_type_to_axis_type(y_dtype);
 	let categories_series = df.column(cat_col).unwrap().unique().unwrap().sort(Default::default()).unwrap();
 	let categories: Vec<String> = categories_series.as_materialized_series().iter().map(|v| {
 		if let AnyValue::String(s) = v { s.to_string() } else { v.to_string().replace("\"", "") }
 	}).collect();
 	let unique_xs_series = df.column(x_col).unwrap().unique().unwrap().sort(Default::default()).unwrap();
-	let unique_xs_f32 = unique_xs_series.cast(&DataType::Float32).unwrap();
-	let unique_xs: Vec<f32> = unique_xs_f32.f32().unwrap().into_no_null_iter().collect();
+	let unique_xs_f64 = unique_xs_series.cast(&DataType::Float64).unwrap();
+	let unique_xs: Vec<f64> = unique_xs_f64.f64().unwrap().into_no_null_iter().collect();
 	let num_cats = categories.len();
 	let num_xs = unique_xs.len();
 	if num_xs < 2 || num_cats == 0 {
@@ -175,6 +186,8 @@ pub fn prepare_stacked_area_data(df: &DataFrame, cat_col: &str, x_col: &str, y_c
 			category_values: Vec::new(),
 			x_range: (0.0, 1.0),
 			y_range: (0.0, 1.0),
+			x_axis_type,
+			y_axis_type,
 			x_label: x_col.to_string(),
 			y_label: y_col.to_string(),
 		};
@@ -184,14 +197,14 @@ pub fn prepare_stacked_area_data(df: &DataFrame, cat_col: &str, x_col: &str, y_c
 		.agg([col(y_col).sum().alias("y_sum")])
 		.collect()
 		.unwrap();
-	let mut category_values = vec![vec![0.0f32; num_xs]; num_cats];
+	let mut category_values = vec![vec![0.0f64; num_xs]; num_cats];
 	let cat_to_idx: HashMap<String, usize> = categories.iter().enumerate().map(|(i, s)| (s.clone(), i)).collect();
-	let x_to_idx: HashMap<u32, usize> = unique_xs.iter().enumerate().map(|(i, &x)| (x.to_bits(), i)).collect();
-	let binding_x = aggregated.column(x_col).unwrap().cast(&DataType::Float32).unwrap();
-	let p_x = binding_x.f32().unwrap();
+	let x_to_idx: HashMap<u64, usize> = unique_xs.iter().enumerate().map(|(i, &x)| (x.to_bits(), i)).collect();
+	let binding_x = aggregated.column(x_col).unwrap().cast(&DataType::Float64).unwrap();
+	let p_x = binding_x.f64().unwrap();
 	let p_cat = aggregated.column(cat_col).unwrap();
-	let binding_y = aggregated.column("y_sum").unwrap().cast(&DataType::Float32).unwrap();
-	let p_y = binding_y.f32().unwrap();
+	let binding_y = aggregated.column("y_sum").unwrap().cast(&DataType::Float64).unwrap();
+	let p_y = binding_y.f64().unwrap();
 	for i in 0..aggregated.height() {
 		let x = p_x.get(i).unwrap();
 		let cat_val = p_cat.get(i).unwrap();
@@ -201,9 +214,9 @@ pub fn prepare_stacked_area_data(df: &DataFrame, cat_col: &str, x_col: &str, y_c
 			category_values[ci][xi] = y;
 		}
 	}
-	let mut max_sum = 0.0f32;
+	let mut max_sum = 0.0f64;
 	for x_idx in 0..num_xs {
-		let mut current_sum = 0.0f32;
+		let mut current_sum = 0.0f64;
 		for cat_idx in 0..num_cats {
 			current_sum += category_values[cat_idx][x_idx];
 		}
@@ -219,6 +232,8 @@ pub fn prepare_stacked_area_data(df: &DataFrame, cat_col: &str, x_col: &str, y_c
 		category_values,
 		x_range,
 		y_range,
+		x_axis_type,
+		y_axis_type,
 		x_label: x_col.to_string(),
 		y_label: y_col.to_string(),
 	}

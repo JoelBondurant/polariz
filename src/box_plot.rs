@@ -1,5 +1,5 @@
 use crate::colors;
-use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout};
+use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout, AxisType, polars_type_to_axis_type};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{Frame, Path, Stroke, Style};
 use iced::{Color, Rectangle};
@@ -104,19 +104,20 @@ impl PlotKernel for BoxPlotKernel {
 				let right = center.x + band_width / 2.0;
 				if cursor_pos.x >= left && cursor_pos.x <= right {
 					let stats = &self.prepared_data.stats[i];
-					let y_scale = transform.bounds.height / (y_range.1 - y_range.0);
+					let y_scale = transform.bounds.height as f64 / (y_range.1 - y_range.0);
 					let data_y = y_range.0
-						+ (transform.bounds.y + transform.bounds.height - cursor_pos.y)
+						+ (transform.bounds.y + transform.bounds.height - cursor_pos.y) as f64
 							/ y_scale;
 					if data_y >= stats.min && data_y <= stats.max {
+						let yt = self.prepared_data.y_axis_type;
 						return Some(format!(
-							"{}\nMax: {:.2}\nQ3: {:.2}\nMedian: {:.2}\nQ1: {:.2}\nMin: {:.2}",
+							"{}\nMax: {}\nQ3: {}\nMedian: {}\nQ1: {}\nMin: {}",
 							category,
-							stats.max,
-							stats.q3,
-							stats.median,
-							stats.q1,
-							stats.min
+							crate::plot::format_label(stats.max, yt),
+							crate::plot::format_label(stats.q3, yt),
+							crate::plot::format_label(stats.median, yt),
+							crate::plot::format_label(stats.q1, yt),
+							crate::plot::format_label(stats.min, yt)
 						));
 					}
 				}
@@ -125,10 +126,10 @@ impl PlotKernel for BoxPlotKernel {
 		None
 	}
 
-	fn draw_legend(&self, frame: &mut Frame, bounds: Rectangle, settings: crate::plot::LegendSettings) {
+	fn draw_legend(&self, frame: &mut Frame, bounds: Rectangle, settings: crate::plot::PlotSettings) {
 		let num_cats = self.prepared_data.categories.len();
 		if num_cats == 0 { return; }
-		let max_rows = settings.max_rows.max(1) as usize;
+		let max_rows = settings.max_legend_rows.max(1) as usize;
 		let num_cols = num_cats.div_ceil(max_rows);
 		let actual_rows = num_cats.min(max_rows);
 		let item_height = 25.0;
@@ -137,8 +138,8 @@ impl PlotKernel for BoxPlotKernel {
 		let col_width = 150.0;
 		let legend_width = num_cols as f32 * col_width + legend_padding * 2.0;
 		let legend_height = actual_rows as f32 * item_height + legend_padding * 2.0;
-		let x = bounds.x + (bounds.width - legend_width) * settings.position_x;
-		let y = bounds.y + (bounds.height - legend_height) * settings.position_y;
+		let x = bounds.x + (bounds.width - legend_width) * settings.legend_x;
+		let y = bounds.y + (bounds.height - legend_height) * settings.legend_y;
 		frame.fill_rectangle(
 			iced::Point::new(x, y),
 			iced::Size::new(legend_width, legend_height),
@@ -178,17 +179,18 @@ impl PlotKernel for BoxPlotKernel {
 }
 
 pub struct BoxStats {
-	pub min: f32,
-	pub q1: f32,
-	pub median: f32,
-	pub q3: f32,
-	pub max: f32,
+	pub min: f64,
+	pub q1: f64,
+	pub median: f64,
+	pub q3: f64,
+	pub max: f64,
 }
 
 pub struct BoxPlotPreparedData {
 	pub categories: Vec<String>,
 	pub stats: Vec<BoxStats>,
-	pub y_range: (f32, f32),
+	pub y_range: (f64, f64),
+	pub y_axis_type: AxisType,
 	pub x_label: String,
 	pub y_label: String,
 }
@@ -198,6 +200,9 @@ pub fn prepare_box_plot_data(
 	cat_col: &str,
 	val_col: &str,
 ) -> BoxPlotPreparedData {
+	let y_dtype = df.column(val_col).unwrap().dtype();
+	let y_axis_type = polars_type_to_axis_type(y_dtype);
+
 	let categories_series = df
 		.column(cat_col)
 		.unwrap()
@@ -218,8 +223,8 @@ pub fn prepare_box_plot_data(
 		.collect();
 	let num_cats = categories.len();
 	let mut stats = Vec::with_capacity(num_cats);
-	let mut y_min_all = f32::MAX;
-	let mut y_max_all = f32::MIN;
+	let mut y_min_all = f64::MAX;
+	let mut y_max_all = f64::MIN;
 	for i in 0..num_cats {
 		let cat_val = categories_series.as_materialized_series().get(i).unwrap();
 		let lit_val = match cat_val {
@@ -237,10 +242,10 @@ pub fn prepare_box_plot_data(
 		let vals = group_df
 			.column(val_col)
 			.unwrap()
-			.cast(&DataType::Float32)
+			.cast(&DataType::Float64)
 			.unwrap();
-		let v = vals.f32().unwrap();
-		let mut sorted_v: Vec<f32> = v.into_no_null_iter().collect();
+		let v = vals.f64().unwrap();
+		let mut sorted_v: Vec<f64> = v.into_no_null_iter().collect();
 		if sorted_v.is_empty() {
 			stats.push(BoxStats {
 				min: 0.0,
@@ -272,7 +277,7 @@ pub fn prepare_box_plot_data(
 			y_max_all = max;
 		}
 	}
-	if y_min_all == f32::MAX {
+	if y_min_all == f64::MAX {
 		y_min_all = 0.0;
 		y_max_all = 1.0;
 	}
@@ -282,6 +287,7 @@ pub fn prepare_box_plot_data(
 		categories,
 		stats,
 		y_range,
+		y_axis_type,
 		x_label: cat_col.to_string(),
 		y_label: val_col.to_string(),
 	}

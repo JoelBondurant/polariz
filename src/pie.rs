@@ -31,7 +31,7 @@ impl PlotKernel for PiePlotKernel {
 		let mut start_angle = -pi / 2.0;
 		for i in 0..num_sectors {
 			let val = self.prepared_data.values[i];
-			let sweep = (val / self.prepared_data.total_sum) * 2.0 * pi;
+			let sweep = (val / self.prepared_data.total_sum) as f32 * 2.0 * pi;
 			let end_angle = start_angle + sweep;
 			let t = if num_sectors > 1 {
 				i as f32 / (num_sectors - 1) as f32
@@ -84,7 +84,7 @@ impl PlotKernel for PiePlotKernel {
 			let inner_radius = radius * 0.05;
 			if dist >= inner_radius && dist <= radius {
 				let pi = std::f32::consts::PI;
-				let angle = dy.atan2(dx); // atan2(y, x)
+				let angle = dy.atan2(dx);
 				let mut normalized_angle = angle - (-pi / 2.0);
 				while normalized_angle < 0.0 {
 					normalized_angle += 2.0 * pi;
@@ -94,7 +94,7 @@ impl PlotKernel for PiePlotKernel {
 				}
 				let angle_ratio = normalized_angle / (2.0 * pi);
 				for (i, &limit) in self.prepared_data.cumulative_angles.iter().enumerate() {
-					if angle_ratio < limit {
+					if angle_ratio < limit as f32 {
 						let cat = &self.prepared_data.categories[i];
 						let val = self.prepared_data.values[i];
 						return Some(format!(
@@ -114,13 +114,13 @@ impl PlotKernel for PiePlotKernel {
 		&self,
 		frame: &mut Frame,
 		bounds: Rectangle,
-		settings: crate::plot::LegendSettings,
+		settings: crate::plot::PlotSettings,
 	) {
 		let num_cats = self.prepared_data.categories.len();
 		if num_cats == 0 {
 			return;
 		}
-		let max_rows = settings.max_rows.max(1) as usize;
+		let max_rows = settings.max_legend_rows.max(1) as usize;
 		let num_cols = num_cats.div_ceil(max_rows);
 		let actual_rows = num_cats.min(max_rows);
 		let item_height = 25.0;
@@ -129,8 +129,8 @@ impl PlotKernel for PiePlotKernel {
 		let col_width = 150.0;
 		let legend_width = num_cols as f32 * col_width + legend_padding * 2.0;
 		let legend_height = actual_rows as f32 * item_height + legend_padding * 2.0;
-		let x = bounds.x + (bounds.width - legend_width) * settings.position_x;
-		let y = bounds.y + (bounds.height - legend_height) * settings.position_y;
+		let x = bounds.x + (bounds.width - legend_width) * settings.legend_x;
+		let y = bounds.y + (bounds.height - legend_height) * settings.legend_y;
 		frame.fill_rectangle(
 			iced::Point::new(x, y),
 			iced::Size::new(legend_width, legend_height),
@@ -167,9 +167,9 @@ impl PlotKernel for PiePlotKernel {
 
 pub struct PiePreparedData {
 	pub categories: Vec<String>,
-	pub values: Vec<f32>,
-	pub cumulative_angles: Vec<f32>,
-	pub total_sum: f32,
+	pub values: Vec<f64>,
+	pub cumulative_angles: Vec<f64>,
+	pub total_sum: f64,
 }
 
 pub fn prepare_pie_data(df: &DataFrame, cat_col: &str, val_col: &str) -> PiePreparedData {
@@ -192,7 +192,7 @@ pub fn prepare_pie_data(df: &DataFrame, cat_col: &str, val_col: &str) -> PiePrep
 		})
 		.collect();
 	let mut values = Vec::with_capacity(categories.len());
-	let mut total_sum = 0.0f32;
+	let mut total_sum = 0.0f64;
 	for cat_val in categories_series.as_materialized_series().iter() {
 		let lit_val = match cat_val {
 			AnyValue::String(s) => lit(s),
@@ -210,9 +210,9 @@ pub fn prepare_pie_data(df: &DataFrame, cat_col: &str, val_col: &str) -> PiePrep
 		let val = filtered
 			.column(val_col)
 			.unwrap()
-			.cast(&DataType::Float32)
+			.cast(&DataType::Float64)
 			.unwrap()
-			.f32()
+			.f64()
 			.unwrap()
 			.get(0)
 			.unwrap_or(0.0);
@@ -220,7 +220,7 @@ pub fn prepare_pie_data(df: &DataFrame, cat_col: &str, val_col: &str) -> PiePrep
 		total_sum += val;
 	}
 	let mut cumulative_angles = Vec::with_capacity(values.len());
-	let mut current_sum = 0.0f32;
+	let mut current_sum = 0.0f64;
 	for &val in &values {
 		current_sum += val;
 		cumulative_angles.push(current_sum / total_sum);
@@ -240,7 +240,7 @@ pub fn generate_sample_pie_data() -> DataFrame {
 	let mut rng = rand::rng();
 	for i in 0..num_cats {
 		cats.push(format!("Category {}", i + 1));
-		vals.push(rng.random_range(10.0..100.0f32));
+		vals.push(rng.random_range(10.0..100.0f64));
 	}
 	DataFrame::new(
 		num_cats,

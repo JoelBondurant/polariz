@@ -1,5 +1,5 @@
 use crate::colors;
-use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout};
+use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout, AxisType, polars_type_to_axis_type};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::Frame;
 use iced::{Color, Rectangle};
@@ -16,6 +16,8 @@ impl PlotKernel for HistogramPlotKernel {
 		PlotLayout::Cartesian {
 			x_range: self.prepared_data.x_range,
 			y_range: self.prepared_data.y_range,
+			x_axis_type: self.prepared_data.x_axis_type,
+			y_axis_type: self.prepared_data.y_axis_type,
 		}
 	}
 
@@ -28,13 +30,13 @@ impl PlotKernel for HistogramPlotKernel {
 	) {
 		let num_bins = self.prepared_data.bin_counts.len();
 		let (x_min, x_max) = self.prepared_data.x_range;
-		let bin_width_data = (x_max - x_min) / num_bins as f32;
-		let max_count = self.prepared_data.max_count as f32;
+		let bin_width_data = (x_max - x_min) / num_bins as f64;
+		let max_count = self.prepared_data.max_count as f64;
 		for (i, &count) in self.prepared_data.bin_counts.iter().enumerate() {
 			if count == 0 { continue; }
-			let bin_start_x = x_min + i as f32 * bin_width_data;
+			let bin_start_x = x_min + i as f64 * bin_width_data;
 			let bin_end_x = bin_start_x + bin_width_data;
-			let p_top_left = transform.cartesian(bin_start_x, count as f32);
+			let p_top_left = transform.cartesian(bin_start_x, count as f64);
 			let p_bottom_right = transform.cartesian(bin_end_x, 0.0);
 			let rect = Rectangle {
 				x: p_top_left.x,
@@ -42,7 +44,7 @@ impl PlotKernel for HistogramPlotKernel {
 				width: (p_bottom_right.x - p_top_left.x).max(1.0),
 				height: (p_bottom_right.y - p_top_left.y).max(1.0),
 			};
-			let t = count as f32 / max_count;
+			let t = count as f32 / max_count as f32;
 			let color = colors::viridis(t);
 			frame.fill_rectangle(rect.position(), rect.size(), color);
 			frame.stroke(&iced::widget::canvas::Path::rectangle(rect.position(), rect.size()), iced::widget::canvas::Stroke {
@@ -53,13 +55,13 @@ impl PlotKernel for HistogramPlotKernel {
 		}
 	}
 
-	fn draw_legend(&self, frame: &mut Frame, bounds: Rectangle, settings: crate::plot::LegendSettings) {
+	fn draw_legend(&self, frame: &mut Frame, bounds: Rectangle, settings: crate::plot::PlotSettings) {
 		let max_count = self.prepared_data.max_count;
 		let legend_width = 60.0;
 		let legend_height = 200.0;
 		let legend_padding = 10.0;
-		let x = bounds.x + (bounds.width - legend_width) * settings.position_x;
-		let y = bounds.y + (bounds.height - legend_height) * settings.position_y;
+		let x = bounds.x + (bounds.width - legend_width) * settings.legend_x;
+		let y = bounds.y + (bounds.height - legend_height) * settings.legend_y;
 		frame.fill_rectangle(
 			iced::Point::new(x, y),
 			iced::Size::new(legend_width, legend_height),
@@ -122,7 +124,7 @@ impl PlotKernel for HistogramPlotKernel {
 			&& let Some((x, y)) = transform.pixel_to_cartesian(cursor_pos) {
 			let num_bins = self.prepared_data.bin_counts.len();
 			let (x_min, x_max) = self.prepared_data.x_range;
-			let bin_width = (x_max - x_min) / num_bins as f32;
+			let bin_width = (x_max - x_min) / num_bins as f64;
 			if x >= x_min && x <= x_max {
 				let bin_idx = if bin_width > 0.0 {
 					((x - x_min) / bin_width).floor() as usize
@@ -131,11 +133,13 @@ impl PlotKernel for HistogramPlotKernel {
 				};
 				let bin_idx = bin_idx.min(num_bins - 1);
 				let count = self.prepared_data.bin_counts[bin_idx];
-				let bin_start = x_min + bin_idx as f32 * bin_width;
+				let bin_start = x_min + bin_idx as f64 * bin_width;
 				let bin_end = bin_start + bin_width;
 				return Some(format!(
-					"Range: [{:.2}, {:.2}]\nCount: {}\nY-Value: {:.2}",
-					bin_start, bin_end, count, y
+					"Range: [{}, {}]\nCount: {}\nY-Value: {:.2}",
+					crate::plot::format_label(bin_start, self.prepared_data.x_axis_type),
+					crate::plot::format_label(bin_end, self.prepared_data.x_axis_type),
+					count, y
 				));
 			}
 		}
@@ -153,21 +157,26 @@ impl PlotKernel for HistogramPlotKernel {
 
 pub struct HistogramPreparedData {
 	pub bin_counts: Vec<u32>,
-	pub x_range: (f32, f32),
-	pub y_range: (f32, f32),
+	pub x_range: (f64, f64),
+	pub y_range: (f64, f64),
+	pub x_axis_type: AxisType,
+	pub y_axis_type: AxisType,
 	pub max_count: u32,
 	pub x_label: String,
 	pub y_label: String,
 }
 
 pub fn prepare_histogram_data(df: &DataFrame, val_col: &str, num_bins: usize) -> HistogramPreparedData {
-	let vals = df.column(val_col).unwrap().cast(&DataType::Float32).unwrap();
-	let v = vals.f32().unwrap();
+	let val_dtype = df.column(val_col).unwrap().dtype();
+	let x_axis_type = polars_type_to_axis_type(val_dtype);
+	let y_axis_type = AxisType::Linear;
+	let vals = df.column(val_col).unwrap().cast(&DataType::Float64).unwrap();
+	let v = vals.f64().unwrap();
 	let x_min = v.min().unwrap_or(0.0);
 	let x_max = v.max().unwrap_or(1.0);
 	let x_range = (x_min, x_max);
 	let mut bin_counts = vec![0u32; num_bins];
-	let bin_width = (x_max - x_min) / num_bins as f32;
+	let bin_width = (x_max - x_min) / num_bins as f64;
 	for val in v.into_no_null_iter() {
 		let bin_idx = if bin_width > 0.0 {
 			((val - x_min) / bin_width).floor() as usize
@@ -178,13 +187,15 @@ pub fn prepare_histogram_data(df: &DataFrame, val_col: &str, num_bins: usize) ->
 		bin_counts[bin_idx] += 1;
 	}
 	let actual_max = bin_counts.iter().cloned().max().unwrap_or(1);
-	let y_max = actual_max as f32;
-	let y_min = 0.0f32;
+	let y_max = actual_max as f64;
+	let y_min = 0.0f64;
 	let y_range = (y_min, y_max * 1.1);
 	HistogramPreparedData {
 		bin_counts,
 		x_range,
 		y_range,
+		x_axis_type,
+		y_axis_type,
 		max_count: actual_max,
 		x_label: val_col.to_string(),
 		y_label: "Frequency".to_string(),

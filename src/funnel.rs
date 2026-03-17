@@ -1,5 +1,5 @@
 use crate::colors;
-use crate::plot::{CoordinateTransformer, LegendSettings, PlotKernel, PlotLayout};
+use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout, PlotSettings};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{Frame, Path, Stroke, Style, Text};
 use iced::{Color, Pixels, Point, Rectangle};
@@ -20,7 +20,7 @@ pub struct FunnelPreparedData {
 
 impl PlotKernel for FunnelPlotKernel {
 	fn layout(&self) -> PlotLayout {
-		PlotLayout::Radial // Custom layout handling
+		PlotLayout::Radial
 	}
 
 	fn plot(
@@ -81,12 +81,12 @@ impl PlotKernel for FunnelPlotKernel {
 		}
 	}
 
-	fn draw_legend(&self, frame: &mut Frame, bounds: Rectangle, settings: LegendSettings) {
+	fn draw_legend(&self, frame: &mut Frame, bounds: Rectangle, settings: PlotSettings) {
 		let num_cats = self.prepared_data.stages.len();
 		if num_cats == 0 {
 			return;
 		}
-		let max_rows = settings.max_rows.max(1) as usize;
+		let max_rows = settings.max_legend_rows.max(1) as usize;
 		let num_cols = num_cats.div_ceil(max_rows);
 		let actual_rows = num_cats.min(max_rows);
 		let item_height = 25.0;
@@ -95,8 +95,8 @@ impl PlotKernel for FunnelPlotKernel {
 		let col_width = 150.0;
 		let legend_width = num_cols as f32 * col_width + legend_padding * 2.0;
 		let legend_height = actual_rows as f32 * item_height + legend_padding * 2.0;
-		let x = bounds.x + (bounds.width - legend_width) * settings.position_x;
-		let y = bounds.y + (bounds.height - legend_height) * settings.position_y;
+		let x = bounds.x + (bounds.width - legend_width) * settings.legend_x;
+		let y = bounds.y + (bounds.height - legend_height) * settings.legend_y;
 		frame.fill_rectangle(
 			Point::new(x, y),
 			iced::Size::new(legend_width, legend_height),
@@ -220,7 +220,6 @@ pub fn generate_sample_funnel_data() -> DataFrame {
 		"Sales",
 	];
 	let values = vec![1000.0, 600.0, 400.0, 200.0, 100.0];
-
 	DataFrame::new(
 		stages.len(),
 		vec![

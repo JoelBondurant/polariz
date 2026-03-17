@@ -7,4 +7,6 @@ pub enum Message {
 	SetMaxLegendRows(u32),
 	SetLegendX(f32),
 	SetLegendY(f32),
+	SetXRotation(f32),
+	SetXOffset(f32),
 }

@@ -1,5 +1,5 @@
 use crate::colors;
-use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout};
+use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout, AxisType, polars_type_to_axis_type};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{Frame, Path, Stroke, Style};
 use iced::Rectangle;
@@ -16,6 +16,8 @@ impl PlotKernel for FillBetweenPlotKernel {
 		PlotLayout::Cartesian {
 			x_range: self.prepared_data.x_range,
 			y_range: self.prepared_data.y_range,
+			x_axis_type: self.prepared_data.x_axis_type,
+			y_axis_type: self.prepared_data.y_axis_type,
 		}
 	}
 
@@ -29,10 +31,10 @@ impl PlotKernel for FillBetweenPlotKernel {
 		if self.prepared_data.x.is_empty() {
 			return;
 		}
-		let line_color = colors::viridis(0.9); // Purple-ish
+		let line_color = colors::viridis(0.9);
 		let band_color = {
-			let mut c = colors::viridis(0.1); // Yellow-ish
-			c.a = 0.8;
+			let mut c = colors::viridis(0.1);
+			c.a = 0.9;
 			c
 		};
 		let band_path = Path::new(|builder| {
@@ -92,8 +94,8 @@ impl PlotKernel for FillBetweenPlotKernel {
 				}
 			};
 			return Some(format!(
-				"X: {:.2}\nMid: {:.2}\nRange: [{:.2}, {:.2}]\nCursor Y: {:.2}",
-				xs[idx],
+				"X: {}\nMid: {:.2}\nRange: [{:.2}, {:.2}]\nCursor Y: {:.2}",
+				crate::plot::format_label(xs[idx], self.prepared_data.x_axis_type),
 				self.prepared_data.y_mid[idx],
 				self.prepared_data.y_lower[idx],
 				self.prepared_data.y_upper[idx],
@@ -113,12 +115,14 @@ impl PlotKernel for FillBetweenPlotKernel {
 }
 
 pub struct FillBetweenPreparedData {
-	pub x: Vec<f32>,
-	pub y_mid: Vec<f32>,
-	pub y_lower: Vec<f32>,
-	pub y_upper: Vec<f32>,
-	pub x_range: (f32, f32),
-	pub y_range: (f32, f32),
+	pub x: Vec<f64>,
+	pub y_mid: Vec<f64>,
+	pub y_lower: Vec<f64>,
+	pub y_upper: Vec<f64>,
+	pub x_range: (f64, f64),
+	pub y_range: (f64, f64),
+	pub x_axis_type: AxisType,
+	pub y_axis_type: AxisType,
 	pub x_label: String,
 	pub y_label: String,
 }
@@ -130,46 +134,51 @@ pub fn prepare_fill_between_data(
 	y_lower_col: &str,
 	y_upper_col: &str,
 ) -> FillBetweenPreparedData {
+	let x_dtype = df.column(x_col).unwrap().dtype();
+	let y_mid_dtype = df.column(y_mid_col).unwrap().dtype();
+	let x_axis_type = polars_type_to_axis_type(x_dtype);
+	let y_axis_type = polars_type_to_axis_type(y_mid_dtype);
+
 	let x_series = df
 		.column(x_col)
 		.unwrap()
-		.cast(&DataType::Float32)
+		.cast(&DataType::Float64)
 		.unwrap()
-		.f32()
+		.f64()
 		.unwrap()
 		.into_no_null_iter()
 		.collect::<Vec<_>>();
 	let y_mid = df
 		.column(y_mid_col)
 		.unwrap()
-		.cast(&DataType::Float32)
+		.cast(&DataType::Float64)
 		.unwrap()
-		.f32()
+		.f64()
 		.unwrap()
 		.into_no_null_iter()
 		.collect::<Vec<_>>();
 	let y_lower = df
 		.column(y_lower_col)
 		.unwrap()
-		.cast(&DataType::Float32)
+		.cast(&DataType::Float64)
 		.unwrap()
-		.f32()
+		.f64()
 		.unwrap()
 		.into_no_null_iter()
 		.collect::<Vec<_>>();
 	let y_upper = df
 		.column(y_upper_col)
 		.unwrap()
-		.cast(&DataType::Float32)
+		.cast(&DataType::Float64)
 		.unwrap()
-		.f32()
+		.f64()
 		.unwrap()
 		.into_no_null_iter()
 		.collect::<Vec<_>>();
-	let x_min = x_series.iter().copied().fold(f32::INFINITY, f32::min);
-	let x_max = x_series.iter().copied().fold(f32::NEG_INFINITY, f32::max);
-	let y_min = y_lower.iter().copied().fold(f32::INFINITY, f32::min);
-	let y_max = y_upper.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+	let x_min = x_series.iter().copied().fold(f64::INFINITY, f64::min);
+	let x_max = x_series.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+	let y_min = y_lower.iter().copied().fold(f64::INFINITY, f64::min);
+	let y_max = y_upper.iter().copied().fold(f64::NEG_INFINITY, f64::max);
 	let x_pad = (x_max - x_min) * 0.001;
 	let y_pad = (y_max - y_min) * 0.001;
 	FillBetweenPreparedData {
@@ -179,6 +188,8 @@ pub fn prepare_fill_between_data(
 		y_upper,
 		x_range: (x_min - x_pad, x_max + x_pad),
 		y_range: (y_min - y_pad, y_max + y_pad),
+		x_axis_type,
+		y_axis_type,
 		x_label: x_col.to_string(),
 		y_label: y_mid_col.to_string(),
 	}

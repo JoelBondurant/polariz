@@ -41,7 +41,6 @@ impl PlotKernel for BarPlotKernel {
 	) {
 		let num_cats = self.prepared_data.categories.len();
 		let num_groups = self.prepared_data.group_names.len();
-
 		match self.orientation {
 			Orientation::Vertical => {
 				let total_band_width = transform.bounds.width / num_cats as f32;
@@ -141,10 +140,11 @@ impl PlotKernel for BarPlotKernel {
 									let local_x = cursor_pos.x - cluster_left;
 									let group_idx = (local_x / sub_group_width).floor() as usize;
 									let group_idx = group_idx.min(num_groups - 1);
-									let y_scale = transform.bounds.height / (y_range.1 - y_range.0);
+									let y_scale =
+										transform.bounds.height as f64 / (y_range.1 - y_range.0);
 									let data_y = y_range.0
 										+ (transform.bounds.y + transform.bounds.height
-											- cursor_pos.y) / y_scale;
+											- cursor_pos.y) as f64 / y_scale;
 									let group_name = &self.prepared_data.group_names[group_idx];
 									return Some(format!(
 										"{}: {} (Value: ~{:.2})",
@@ -177,9 +177,10 @@ impl PlotKernel for BarPlotKernel {
 										- 1 - (local_y / sub_group_height).floor()
 										as usize)
 										.min(num_groups - 1);
-									let x_scale = transform.bounds.width / (x_range.1 - x_range.0);
-									let data_x =
-										x_range.0 + (cursor_pos.x - transform.bounds.x) / x_scale;
+									let x_scale =
+										transform.bounds.width as f64 / (x_range.1 - x_range.0);
+									let data_x = x_range.0
+										+ (cursor_pos.x - transform.bounds.x) as f64 / x_scale;
 									let group_name = &self.prepared_data.group_names[group_idx];
 									return Some(format!(
 										"{}: {} (Value: ~{:.2})",
@@ -199,13 +200,13 @@ impl PlotKernel for BarPlotKernel {
 		&self,
 		frame: &mut Frame,
 		bounds: Rectangle,
-		settings: crate::plot::LegendSettings,
+		settings: crate::plot::PlotSettings,
 	) {
 		let num_groups = self.prepared_data.group_names.len();
 		if num_groups == 0 {
 			return;
 		}
-		let max_rows = settings.max_rows.max(1) as usize;
+		let max_rows = settings.max_legend_rows.max(1) as usize;
 		let num_cols = num_groups.div_ceil(max_rows);
 		let actual_rows = num_groups.min(max_rows);
 		let item_height = 25.0;
@@ -214,8 +215,8 @@ impl PlotKernel for BarPlotKernel {
 		let col_width = 150.0;
 		let legend_width = num_cols as f32 * col_width + legend_padding * 2.0;
 		let legend_height = actual_rows as f32 * item_height + legend_padding * 2.0;
-		let x = bounds.x + (bounds.width - legend_width) * settings.position_x;
-		let y = bounds.y + (bounds.height - legend_height) * settings.position_y;
+		let x = bounds.x + (bounds.width - legend_width) * settings.legend_x;
+		let y = bounds.y + (bounds.height - legend_height) * settings.legend_y;
 		frame.fill_rectangle(
 			iced::Point::new(x, y),
 			iced::Size::new(legend_width, legend_height),
@@ -267,8 +268,8 @@ impl PlotKernel for BarPlotKernel {
 pub struct BarPreparedData {
 	pub categories: Vec<String>,
 	pub group_names: Vec<String>,
-	pub values: Vec<Vec<f32>>,
-	pub y_range: (f32, f32),
+	pub values: Vec<Vec<f64>>,
+	pub y_range: (f64, f64),
 	pub x_label: String,
 	pub y_label: String,
 }
@@ -320,13 +321,13 @@ pub fn prepare_bar_data(
 	let vals_col_series = df
 		.column(val_col)
 		.unwrap()
-		.cast(&DataType::Float32)
+		.cast(&DataType::Float64)
 		.unwrap();
-	let vals_f32 = vals_col_series.f32().unwrap();
-	let y_max = vals_f32.max().unwrap_or(1.0);
-	let y_min = 0.0f32;
+	let vals_f64 = vals_col_series.f64().unwrap();
+	let y_max = vals_f64.max().unwrap_or(1.0);
+	let y_min = 0.0f64;
 	let y_range = (y_min, y_max * 1.1);
-	let mut values = vec![vec![0.0f32; num_groups]; num_cats];
+	let mut values = vec![vec![0.0f64; num_groups]; num_cats];
 	let partitions = df.partition_by([cat_col], true).unwrap();
 	for (i, group_df) in partitions.into_iter().enumerate() {
 		let group_partitions = group_df.partition_by([group_col], true).unwrap();
@@ -340,9 +341,9 @@ pub fn prepare_bar_data(
 			let val = sub_group_df
 				.column(val_col)
 				.unwrap()
-				.cast(&DataType::Float32)
+				.cast(&DataType::Float64)
 				.unwrap()
-				.f32()
+				.f64()
 				.unwrap()
 				.get(0)
 				.unwrap_or(0.0);
@@ -373,7 +374,7 @@ pub fn generate_sample_bar_data() -> DataFrame {
 			let group = format!("Group {:02}", j + 1);
 			cats.push(cat.clone());
 			groups.push(group);
-			vals.push(rng.random_range(5.0..50.0f32));
+			vals.push(rng.random_range(5.0..50.0f64));
 		}
 	}
 	DataFrame::new(

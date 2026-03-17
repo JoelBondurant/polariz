@@ -1,5 +1,5 @@
 use crate::colors;
-use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout};
+use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout, AxisType};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{Frame, Path, Stroke, Style};
 use iced::{Color, Rectangle};
@@ -17,6 +17,8 @@ impl PlotKernel for HexbinPlotKernel {
 		PlotLayout::Cartesian {
 			x_range: self.prepared_data.x_range,
 			y_range: self.prepared_data.y_range,
+			x_axis_type: AxisType::Linear,
+			y_axis_type: AxisType::Linear,
 		}
 	}
 
@@ -27,18 +29,18 @@ impl PlotKernel for HexbinPlotKernel {
 		transform: &CoordinateTransformer,
 		_cursor: Cursor,
 	) {
-		let radius = self.prepared_data.radius;
-		let sqrt_3 = 3.0f32.sqrt();
-		let max_count = self.prepared_data.max_count as f32;
+		let radius = self.prepared_data.radius as f64;
+		let sqrt_3 = 3.0f64.sqrt();
+		let max_count = self.prepared_data.max_count as f64;
 		frame.with_clip(bounds, |frame| {
 			for (&(q, r), &count) in &self.prepared_data.bins {
 				if count == 0 { continue; }
-				let lx = radius * (sqrt_3 * q as f32 + sqrt_3 / 2.0 * r as f32);
-				let ly = radius * (3.0 / 2.0 * r as f32);
+				let lx = radius * (sqrt_3 * q as f64 + sqrt_3 / 2.0 * r as f64);
+				let ly = radius * (3.0 / 2.0 * r as f64);
 				let hex_path = Path::new(|builder| {
 					for i in 0..6 {
-						let angle_deg = 60.0 * i as f32 - 30.0;
-						let angle_rad = std::f32::consts::PI / 180.0 * angle_deg;
+						let angle_deg = 60.0 * i as f64 - 30.0;
+						let angle_rad = std::f64::consts::PI / 180.0 * angle_deg;
 						let dx = radius * angle_rad.cos();
 						let dy = radius * angle_rad.sin();
 						let p = transform.cartesian(lx + dx, ly + dy);
@@ -50,7 +52,7 @@ impl PlotKernel for HexbinPlotKernel {
 					}
 					builder.close();
 				});
-				let t = count as f32 / max_count;
+				let t = count as f32 / max_count as f32;
 				let color = colors::viridis(t);
 				frame.fill(&hex_path, color);
 				frame.stroke(&hex_path, Stroke {
@@ -62,13 +64,13 @@ impl PlotKernel for HexbinPlotKernel {
 		});
 	}
 
-	fn draw_legend(&self, frame: &mut Frame, bounds: Rectangle, settings: crate::plot::LegendSettings) {
+	fn draw_legend(&self, frame: &mut Frame, bounds: Rectangle, settings: crate::plot::PlotSettings) {
 		let max_count = self.prepared_data.max_count;
 		let legend_width = 60.0;
 		let legend_height = 200.0;
 		let legend_padding = 10.0;
-		let x = bounds.x + (bounds.width - legend_width) * settings.position_x;
-		let y = bounds.y + (bounds.height - legend_height) * settings.position_y;
+		let x = bounds.x + (bounds.width - legend_width) * settings.legend_x;
+		let y = bounds.y + (bounds.height - legend_height) * settings.legend_y;
 		frame.fill_rectangle(
 			iced::Point::new(x, y),
 			iced::Size::new(legend_width, legend_height),
@@ -86,7 +88,7 @@ impl PlotKernel for HexbinPlotKernel {
 			let step_y = bar_y + bar_height - (i as f32 + 1.0) * step_height;
 			frame.fill_rectangle(
 				iced::Point::new(bar_x, step_y),
-				iced::Size::new(bar_width, step_height + 0.5), // small overlap to avoid gaps
+				iced::Size::new(bar_width, step_height + 0.5),
 				color
 			);
 		}
@@ -129,8 +131,8 @@ impl PlotKernel for HexbinPlotKernel {
 	fn hover(&self, transform: &CoordinateTransformer, cursor: Cursor) -> Option<String> {
 		if let Some(cursor_pos) = cursor.position()
 			&& let Some((x, y)) = transform.pixel_to_cartesian(cursor_pos) {
-			let radius = self.prepared_data.radius;
-			let sqrt_3 = 3.0f32.sqrt();
+			let radius = self.prepared_data.radius as f64;
+			let sqrt_3 = 3.0f64.sqrt();
 			let q_frac = (sqrt_3 / 3.0 * x - 1.0 / 3.0 * y) / radius;
 			let r_frac = (2.0 / 3.0 * y) / radius;
 			let mut q = q_frac.round();
@@ -164,8 +166,8 @@ pub struct HexbinPreparedData {
 	pub bins: std::collections::HashMap<(i32, i32), u32>,
 	pub max_count: u32,
 	pub radius: f32,
-	pub x_range: (f32, f32),
-	pub y_range: (f32, f32),
+	pub x_range: (f64, f64),
+	pub y_range: (f64, f64),
 	pub x_label: String,
 	pub y_label: String,
 }
@@ -220,8 +222,10 @@ fn bin_data_to_hex(df: DataFrame, radius: f32) -> PolarsResult<DataFrame> {
 }
 
 pub fn prepare_hexbin_data(df: &DataFrame, radius: f32) -> HexbinPreparedData {
-	let x_col = df.column("x").unwrap().f32().unwrap();
-	let y_col = df.column("y").unwrap().f32().unwrap();
+	let x_col_series = df.column("x").unwrap().cast(&DataType::Float64).unwrap();
+	let y_col_series = df.column("y").unwrap().cast(&DataType::Float64).unwrap();
+	let x_col = x_col_series.f64().unwrap();
+	let y_col = y_col_series.f64().unwrap();
 	let x_range = (x_col.min().unwrap_or(0.0), x_col.max().unwrap_or(1.0));
 	let y_range = (y_col.min().unwrap_or(0.0), y_col.max().unwrap_or(1.0));
 	let binned = bin_data_to_hex(df.clone(), radius).unwrap();

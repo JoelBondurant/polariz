@@ -8,3 +8,4 @@ iced = { version = "0.14.0", features = ["advanced", "canvas"] }
 polars = { version = "0.53.0", features = ["abs", "lazy", "round_series"] }
 rand = "0.10.0"
 rand_distr = "0.6.0"
+chrono = "0.4"

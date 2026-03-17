@@ -44,7 +44,7 @@ impl PlotKernel for StackedBarPlotKernel {
 				let bar_offset = (total_band_width - bar_width) / 2.0;
 				for i in 0..num_cats {
 					let cat_left = transform.bounds.x + (i as f32 * total_band_width) + bar_offset;
-					let mut current_y = 0.0f32;
+					let mut current_y = 0.0f64;
 					for j in 0..num_groups {
 						let val = self.prepared_data.category_values[i][j];
 						if val <= 0.0 {
@@ -77,7 +77,7 @@ impl PlotKernel for StackedBarPlotKernel {
 					let cat_top = transform.bounds.y
 						+ (num_cats - 1 - i) as f32 * total_band_height
 						+ bar_offset;
-					let mut current_x = 0.0f32;
+					let mut current_x = 0.0f64;
 					for j in 0..num_groups {
 						let val = self.prepared_data.category_values[i][j];
 						if val <= 0.0 {
@@ -124,11 +124,12 @@ impl PlotKernel for StackedBarPlotKernel {
 								let bar_left = left + bar_offset;
 								let bar_right = left + bar_offset + bar_width;
 								if cursor_pos.x >= bar_left && cursor_pos.x <= bar_right {
-									let y_scale = transform.bounds.height / (y_range.1 - y_range.0);
+									let y_scale =
+										transform.bounds.height as f64 / (y_range.1 - y_range.0);
 									let data_y = y_range.0
 										+ (transform.bounds.y + transform.bounds.height
-											- cursor_pos.y) / y_scale;
-									let mut current_sum = 0.0;
+											- cursor_pos.y) as f64 / y_scale;
+									let mut current_sum = 0.0f64;
 									for (j, &val) in
 										self.prepared_data.category_values[i].iter().enumerate()
 									{
@@ -166,10 +167,11 @@ impl PlotKernel for StackedBarPlotKernel {
 								let bar_top = top + bar_offset;
 								let bar_bottom = top + bar_offset + bar_height;
 								if cursor_pos.y >= bar_top && cursor_pos.y <= bar_bottom {
-									let x_scale = transform.bounds.width / (x_range.1 - x_range.0);
-									let data_x =
-										x_range.0 + (cursor_pos.x - transform.bounds.x) / x_scale;
-									let mut current_sum = 0.0;
+									let x_scale =
+										transform.bounds.width as f64 / (x_range.1 - x_range.0);
+									let data_x = x_range.0
+										+ (cursor_pos.x - transform.bounds.x) as f64 / x_scale;
+									let mut current_sum = 0.0f64;
 									for (j, &val) in
 										self.prepared_data.category_values[i].iter().enumerate()
 									{
@@ -200,13 +202,13 @@ impl PlotKernel for StackedBarPlotKernel {
 		&self,
 		frame: &mut Frame,
 		bounds: Rectangle,
-		settings: crate::plot::LegendSettings,
+		settings: crate::plot::PlotSettings,
 	) {
 		let num_groups = self.prepared_data.group_names.len();
 		if num_groups == 0 {
 			return;
 		}
-		let max_rows = settings.max_rows.max(1) as usize;
+		let max_rows = settings.max_legend_rows.max(1) as usize;
 		let num_cols = num_groups.div_ceil(max_rows);
 		let actual_rows = num_groups.min(max_rows);
 		let item_height = 25.0;
@@ -215,8 +217,8 @@ impl PlotKernel for StackedBarPlotKernel {
 		let col_width = 150.0;
 		let legend_width = num_cols as f32 * col_width + legend_padding * 2.0;
 		let legend_height = actual_rows as f32 * item_height + legend_padding * 2.0;
-		let x = bounds.x + (bounds.width - legend_width) * settings.position_x;
-		let y = bounds.y + (bounds.height - legend_height) * settings.position_y;
+		let x = bounds.x + (bounds.width - legend_width) * settings.legend_x;
+		let y = bounds.y + (bounds.height - legend_height) * settings.legend_y;
 		frame.fill_rectangle(
 			iced::Point::new(x, y),
 			iced::Size::new(legend_width, legend_height),
@@ -268,8 +270,8 @@ impl PlotKernel for StackedBarPlotKernel {
 pub struct StackedBarPreparedData {
 	pub categories: Vec<String>,
 	pub group_names: Vec<String>,
-	pub category_values: Vec<Vec<f32>>, // For hover detection
-	pub y_range: (f32, f32),
+	pub category_values: Vec<Vec<f64>>,
+	pub y_range: (f64, f64),
 	pub x_label: String,
 	pub y_label: String,
 }
@@ -323,21 +325,21 @@ pub fn prepare_stacked_bar_data(
 		.collect();
 	let num_cats = categories.len();
 	let num_groups = group_names.len();
-	let mut category_values = vec![vec![0.0f32; num_groups]; num_cats];
-	let mut max_sum = 0.0f32;
+	let mut category_values = vec![vec![0.0f64; num_groups]; num_cats];
+	let mut max_sum = 0.0f64;
 	let partitions = df.partition_by([cat_col], true).unwrap();
 	for (i, group_df) in partitions.into_iter().enumerate() {
 		let group_partitions = group_df.partition_by([group_col], true).unwrap();
-		let mut current_cat_sum = 0.0f32;
+		let mut current_cat_sum = 0.0f64;
 		for sub_group_df in group_partitions {
 			let group_val = sub_group_df.column(group_col).unwrap().get(0).unwrap();
 			if let Some(&group_idx) = group_idx_map.get(&group_val) {
 				let val = sub_group_df
 					.column(val_col)
 					.unwrap()
-					.cast(&DataType::Float32)
+					.cast(&DataType::Float64)
 					.unwrap()
-					.f32()
+					.f64()
 					.unwrap()
 					.get(0)
 					.unwrap_or(0.0);
@@ -349,7 +351,7 @@ pub fn prepare_stacked_bar_data(
 			max_sum = current_cat_sum;
 		}
 	}
-	let y_min = 0.0f32;
+	let y_min = 0.0f64;
 	let y_range = (y_min, max_sum * 1.1);
 	StackedBarPreparedData {
 		categories,
@@ -375,7 +377,7 @@ pub fn generate_sample_stacked_bar_data() -> DataFrame {
 			let group = format!("Group {}", j);
 			cats.push(cat.clone());
 			groups.push(group);
-			vals.push(rng.random_range(5.0..25.0f32));
+			vals.push(rng.random_range(5.0..25.0f64));
 		}
 	}
 	DataFrame::new(
