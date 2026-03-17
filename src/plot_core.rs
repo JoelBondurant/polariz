@@ -1,7 +1,6 @@
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum PlotType {
 	Bar,
-	HorizontalBar,
 	BoxPlot,
 	Bubble,
 	Candlestick,
@@ -10,20 +9,21 @@ pub enum PlotType {
 	Heatmap,
 	Hexbin,
 	Histogram,
+	HorizontalBar,
+	HorizontalStackedBar,
 	Line,
 	Parallel,
 	Pie,
+	Radar,
 	Scatter,
 	StackedArea,
 	StackedBar,
-	HorizontalStackedBar,
 	Violin,
 }
 
 impl PlotType {
-	pub const ALL: [PlotType; 18] = [
+	pub const ALL: [PlotType; 19] = [
 		PlotType::Bar,
-		PlotType::HorizontalBar,
 		PlotType::BoxPlot,
 		PlotType::Bubble,
 		PlotType::Candlestick,
@@ -32,13 +32,15 @@ impl PlotType {
 		PlotType::Heatmap,
 		PlotType::Hexbin,
 		PlotType::Histogram,
+		PlotType::HorizontalBar,
+		PlotType::HorizontalStackedBar,
 		PlotType::Line,
 		PlotType::Parallel,
 		PlotType::Pie,
+		PlotType::Radar,
 		PlotType::Scatter,
 		PlotType::StackedArea,
 		PlotType::StackedBar,
-		PlotType::HorizontalStackedBar,
 		PlotType::Violin,
 	];
 }
@@ -47,7 +49,6 @@ impl std::fmt::Display for PlotType {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
 			PlotType::Bar => write!(f, "Bar Plot"),
-			PlotType::HorizontalBar => write!(f, "Horizontal Bar Plot"),
 			PlotType::BoxPlot => write!(f, "Box Plot"),
 			PlotType::Bubble => write!(f, "Bubble Plot"),
 			PlotType::Candlestick => write!(f, "Candlestick Plot"),
@@ -56,13 +57,15 @@ impl std::fmt::Display for PlotType {
 			PlotType::Heatmap => write!(f, "Heatmap"),
 			PlotType::Hexbin => write!(f, "Hexbin Plot"),
 			PlotType::Histogram => write!(f, "Histogram Plot"),
+			PlotType::HorizontalBar => write!(f, "Horizontal Bar Plot"),
+			PlotType::HorizontalStackedBar => write!(f, "Horizontal Stacked Bar Plot"),
 			PlotType::Line => write!(f, "Line Plot"),
 			PlotType::Parallel => write!(f, "Parallel Coordinates Plot"),
 			PlotType::Pie => write!(f, "Pie Plot"),
+			PlotType::Radar => write!(f, "Radar Plot"),
 			PlotType::Scatter => write!(f, "Scatter Plot"),
 			PlotType::StackedArea => write!(f, "Stacked Area Plot"),
 			PlotType::StackedBar => write!(f, "Stacked Bar Plot"),
-			PlotType::HorizontalStackedBar => write!(f, "Horizontal Stacked Bar Plot"),
 			PlotType::Violin => write!(f, "Violin Plot"),
 		}
 	}

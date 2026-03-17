@@ -14,6 +14,7 @@ mod parallel;
 mod pie;
 mod plot;
 mod plot_core;
+mod radar;
 mod scatter;
 mod stacked_area;
 mod stacked_bar;

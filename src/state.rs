@@ -13,6 +13,7 @@ use crate::parallel::{self, ParallelPlotKernel};
 use crate::pie::{self, PiePlotKernel};
 use crate::plot::{PlotKernel, PlotSettings, PlotWidget};
 use crate::plot_core::PlotType;
+use crate::radar::{self, RadarPlotKernel};
 use crate::scatter::{self, ScatterPlotKernel};
 use crate::stacked_area::{self, StackedAreaPlotKernel};
 use crate::stacked_bar::{self, StackedBarPlotKernel};
@@ -207,6 +208,21 @@ fn create_plot(plot_type: PlotType, width: u32, height: u32) -> Box<dyn PlotKern
 			];
 			let prepared = parallel::prepare_parallel_data(&df, &dims, "cat");
 			Box::new(ParallelPlotKernel {
+				prepared_data: Arc::new(prepared),
+			})
+		}
+		PlotType::Radar => {
+			let df = radar::generate_sample_radar_data();
+			let dims = vec![
+				"Speed".to_string(),
+				"Power".to_string(),
+				"Agility".to_string(),
+				"Stamina".to_string(),
+				"Skill".to_string(),
+				"Luck".to_string(),
+			];
+			let prepared = radar::prepare_radar_data(&df, &dims, "cat");
+			Box::new(RadarPlotKernel {
 				prepared_data: Arc::new(prepared),
 			})
 		}
