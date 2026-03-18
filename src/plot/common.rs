@@ -181,6 +181,10 @@ pub struct PlotSettings {
 	pub color_theme: ColorTheme,
 	pub background_color: Color,
 	pub decoration_color: Color,
+	pub x_min: Option<f64>,
+	pub x_max: Option<f64>,
+	pub y_min: Option<f64>,
+	pub y_max: Option<f64>,
 }
 
 impl Default for PlotSettings {
@@ -194,12 +198,16 @@ impl Default for PlotSettings {
 			color_theme: ColorTheme::default(),
 			background_color: Color::from_rgb(0.001, 0.001, 0.001),
 			decoration_color: Color::WHITE,
+			x_min: None,
+			x_max: None,
+			y_min: None,
+			y_max: None,
 		}
 	}
 }
 
 pub trait PlotKernel {
-	fn layout(&self) -> PlotLayout;
+	fn layout(&self, settings: PlotSettings) -> PlotLayout;
 
 	fn plot(
 		&self,
@@ -252,7 +260,7 @@ impl<'a> Program<Message> for PlotWidget<'a> {
 			width: bounds.width - padding_left - padding_right,
 			height: bounds.height - padding_top - padding_bottom,
 		};
-		let layout = self.kernel.layout();
+		let layout = self.kernel.layout(self.settings);
 		let transform = CoordinateTransformer::new(&layout, plot_area);
 		let relative_cursor = match cursor.position() {
 			Some(pos) => Cursor::Available(Point::new(pos.x - bounds.x, pos.y - bounds.y)),
@@ -367,7 +375,7 @@ impl<'a> Program<Message> for PlotWidget<'a> {
 				width: bounds.width - padding_left - padding_right,
 				height: bounds.height - padding_top - padding_bottom,
 			};
-			let layout = self.kernel.layout();
+			let layout = self.kernel.layout(self.settings);
 			let transform = CoordinateTransformer::new(&layout, plot_area);
 			let relative_cursor = match cursor.position() {
 				Some(pos) => Cursor::Available(Point::new(pos.x - bounds.x, pos.y - bounds.y)),

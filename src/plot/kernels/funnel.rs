@@ -18,7 +18,7 @@ pub struct FunnelPreparedData {
 }
 
 impl PlotKernel for FunnelPlotKernel {
-	fn layout(&self) -> PlotLayout {
+	fn layout(&self, _settings: PlotSettings) -> PlotLayout {
 		PlotLayout::Radial
 	}
 

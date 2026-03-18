@@ -11,7 +11,7 @@ pub struct RadarPlotKernel {
 }
 
 impl PlotKernel for RadarPlotKernel {
-	fn layout(&self) -> PlotLayout {
+	fn layout(&self, _settings: PlotSettings) -> PlotLayout {
 		PlotLayout::Radial
 	}
 

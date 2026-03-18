@@ -10,10 +10,13 @@ pub struct BoxPlotKernel {
 }
 
 impl PlotKernel for BoxPlotKernel {
-	fn layout(&self) -> PlotLayout {
+	fn layout(&self, settings: PlotSettings) -> PlotLayout {
 		PlotLayout::CategoricalX {
 			categories: self.prepared_data.categories.clone(),
-			y_range: self.prepared_data.y_range,
+			y_range: (
+				settings.y_min.unwrap_or(self.prepared_data.y_range.0),
+				settings.y_max.unwrap_or(self.prepared_data.y_range.1),
+			),
 		}
 	}
 
@@ -97,7 +100,7 @@ impl PlotKernel for BoxPlotKernel {
 			&& let PlotLayout::CategoricalX {
 				categories,
 				y_range,
-			} = self.layout() {
+			} = transform.layout {
 			for (i, category) in categories.iter().enumerate() {
 				let (center, band_width) = transform.categorical(i, 0.0);
 				let left = center.x - band_width / 2.0;

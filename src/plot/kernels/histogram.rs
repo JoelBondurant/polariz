@@ -11,10 +11,16 @@ pub struct HistogramPlotKernel {
 }
 
 impl PlotKernel for HistogramPlotKernel {
-	fn layout(&self) -> PlotLayout {
+	fn layout(&self, settings: PlotSettings) -> PlotLayout {
 		PlotLayout::Cartesian {
-			x_range: self.prepared_data.x_range,
-			y_range: self.prepared_data.y_range,
+			x_range: (
+				settings.x_min.unwrap_or(self.prepared_data.x_range.0),
+				settings.x_max.unwrap_or(self.prepared_data.x_range.1),
+			),
+			y_range: (
+				settings.y_min.unwrap_or(self.prepared_data.y_range.0),
+				settings.y_max.unwrap_or(self.prepared_data.y_range.1),
+			),
 			x_axis_type: self.prepared_data.x_axis_type,
 			y_axis_type: self.prepared_data.y_axis_type,
 		}

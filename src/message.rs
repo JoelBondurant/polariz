@@ -17,4 +17,8 @@ pub enum Message {
 	ChangeBackgroundHex(String),
 	ChangeDecorationColor(Color),
 	ChangeDecorationHex(String),
+	SetXMin(Option<f64>),
+	SetXMax(Option<f64>),
+	SetYMin(Option<f64>),
+	SetYMax(Option<f64>),
 }

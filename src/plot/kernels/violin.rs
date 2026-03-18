@@ -12,10 +12,13 @@ pub struct ViolinPlotKernel {
 }
 
 impl PlotKernel for ViolinPlotKernel {
-	fn layout(&self) -> PlotLayout {
+	fn layout(&self, settings: PlotSettings) -> PlotLayout {
 		PlotLayout::CategoricalX {
 			categories: self.prepared_data.categories.clone(),
-			y_range: self.prepared_data.y_range,
+			y_range: (
+				settings.y_min.unwrap_or(self.prepared_data.y_range.0),
+				settings.y_max.unwrap_or(self.prepared_data.y_range.1),
+			),
 		}
 	}
 
@@ -161,7 +164,7 @@ impl PlotKernel for ViolinPlotKernel {
 
 	fn hover(&self, transform: &CoordinateTransformer, cursor: Cursor) -> Option<String> {
 		if let Some(cursor_pos) = cursor.position()
-			&& let PlotLayout::CategoricalX { categories, .. } = self.layout() {
+			&& let PlotLayout::CategoricalX { categories, .. } = transform.layout {
 			for (i, cat) in categories.iter().enumerate() {
 				let (center_point, band_width) = transform.categorical(i, 0.0);
 				let left_edge = center_point.x - (band_width / 2.0);

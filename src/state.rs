@@ -41,6 +41,10 @@ struct AppState {
 	x_offset_input: String,
 	bg_color_input: String,
 	decoration_color_input: String,
+	x_min_input: String,
+	x_max_input: String,
+	y_min_input: String,
+	y_max_input: String,
 }
 
 pub type Result = iced::Result;
@@ -66,6 +70,10 @@ fn new() -> (AppState, Task<Message>) {
 		current_size: (WIDTH, HEIGHT),
 		bg_color_input: colors::color_to_hex(plot_settings.background_color),
 		decoration_color_input: colors::color_to_hex(plot_settings.decoration_color),
+		x_min_input: String::new(),
+		x_max_input: String::new(),
+		y_min_input: String::new(),
+		y_max_input: String::new(),
 		plot_settings,
 		max_legend_rows_input: plot_settings.max_legend_rows.to_string(),
 		legend_x_input: plot_settings.legend_x.to_string(),
@@ -316,6 +324,26 @@ fn update(state: &mut AppState, message: Message) -> Task<Message> {
 			}
 			Task::none()
 		}
+		Message::SetXMin(val) => {
+			state.plot_settings.x_min = val;
+			state.x_min_input = val.map(|v| v.to_string()).unwrap_or_default();
+			Task::none()
+		}
+		Message::SetXMax(val) => {
+			state.plot_settings.x_max = val;
+			state.x_max_input = val.map(|v| v.to_string()).unwrap_or_default();
+			Task::none()
+		}
+		Message::SetYMin(val) => {
+			state.plot_settings.y_min = val;
+			state.y_min_input = val.map(|v| v.to_string()).unwrap_or_default();
+			Task::none()
+		}
+		Message::SetYMax(val) => {
+			state.plot_settings.y_max = val;
+			state.y_max_input = val.map(|v| v.to_string()).unwrap_or_default();
+			Task::none()
+		}
 	}
 }
 
@@ -423,6 +451,52 @@ fn view(state: &AppState) -> Element<'_, Message> {
 			.on_input(|s| {
 				if let Ok(offset) = s.parse::<f32>() {
 					Message::SetXOffset(offset)
+				} else {
+					Message::UpdateHover(state.hovered_info.clone())
+				}
+			})
+			.width(60),
+		text("X Range:"),
+		text_input("min", &state.x_min_input)
+			.on_input(|s| {
+				if let Ok(val) = s.parse::<f64>() {
+					Message::SetXMin(Some(val))
+				} else if s.is_empty() {
+					Message::SetXMin(None)
+				} else {
+					Message::UpdateHover(state.hovered_info.clone())
+				}
+			})
+			.width(60),
+		text_input("max", &state.x_max_input)
+			.on_input(|s| {
+				if let Ok(val) = s.parse::<f64>() {
+					Message::SetXMax(Some(val))
+				} else if s.is_empty() {
+					Message::SetXMax(None)
+				} else {
+					Message::UpdateHover(state.hovered_info.clone())
+				}
+			})
+			.width(60),
+		text("Y Range:"),
+		text_input("min", &state.y_min_input)
+			.on_input(|s| {
+				if let Ok(val) = s.parse::<f64>() {
+					Message::SetYMin(Some(val))
+				} else if s.is_empty() {
+					Message::SetYMin(None)
+				} else {
+					Message::UpdateHover(state.hovered_info.clone())
+				}
+			})
+			.width(60),
+		text_input("max", &state.y_max_input)
+			.on_input(|s| {
+				if let Ok(val) = s.parse::<f64>() {
+					Message::SetYMax(Some(val))
+				} else if s.is_empty() {
+					Message::SetYMax(None)
 				} else {
 					Message::UpdateHover(state.hovered_info.clone())
 				}

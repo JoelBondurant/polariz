@@ -10,7 +10,7 @@ pub struct RadialDialPlotKernel {
 }
 
 impl PlotKernel for RadialDialPlotKernel {
-	fn layout(&self) -> PlotLayout {
+	fn layout(&self, _settings: PlotSettings) -> PlotLayout {
 		PlotLayout::Radial
 	}
 

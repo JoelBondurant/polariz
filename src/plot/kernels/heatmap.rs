@@ -10,7 +10,7 @@ pub struct HeatmapPlotKernel {
 }
 
 impl PlotKernel for HeatmapPlotKernel {
-	fn layout(&self) -> PlotLayout {
+	fn layout(&self, _settings: PlotSettings) -> PlotLayout {
 		PlotLayout::CategoricalXY {
 			x_categories: self.prepared_data.x_categories.clone(),
 			y_categories: self.prepared_data.y_categories.clone(),

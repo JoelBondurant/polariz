@@ -15,15 +15,21 @@ pub struct StackedBarPlotKernel {
 }
 
 impl PlotKernel for StackedBarPlotKernel {
-	fn layout(&self) -> PlotLayout {
+	fn layout(&self, settings: PlotSettings) -> PlotLayout {
 		match self.orientation {
 			Orientation::Vertical => PlotLayout::CategoricalX {
 				categories: self.prepared_data.categories.clone(),
-				y_range: self.prepared_data.y_range,
+				y_range: (
+					settings.y_min.unwrap_or(self.prepared_data.y_range.0),
+					settings.y_max.unwrap_or(self.prepared_data.y_range.1),
+				),
 			},
 			Orientation::Horizontal => PlotLayout::CategoricalY {
 				categories: self.prepared_data.categories.clone(),
-				x_range: self.prepared_data.y_range,
+				x_range: (
+					settings.x_min.unwrap_or(self.prepared_data.y_range.0),
+					settings.x_max.unwrap_or(self.prepared_data.y_range.1),
+				),
 			},
 		}
 	}
@@ -113,7 +119,7 @@ impl PlotKernel for StackedBarPlotKernel {
 					if let PlotLayout::CategoricalX {
 						categories,
 						y_range,
-					} = self.layout()
+					} = transform.layout
 					{
 						for (i, cat_name) in categories.iter().enumerate() {
 							let (center, band_width) = transform.categorical(i, 0.0);
@@ -156,7 +162,7 @@ impl PlotKernel for StackedBarPlotKernel {
 					if let PlotLayout::CategoricalY {
 						categories,
 						x_range,
-					} = self.layout()
+					} = transform.layout
 					{
 						for (i, cat_name) in categories.iter().enumerate() {
 							let (center, band_height) = transform.categorical(i, 0.0);

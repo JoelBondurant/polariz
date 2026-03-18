@@ -11,7 +11,7 @@ pub struct PiePlotKernel {
 }
 
 impl PlotKernel for PiePlotKernel {
-	fn layout(&self) -> PlotLayout {
+	fn layout(&self, _settings: PlotSettings) -> PlotLayout {
 		PlotLayout::Radial
 	}
 

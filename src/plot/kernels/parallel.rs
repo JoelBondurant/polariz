@@ -11,7 +11,7 @@ pub struct ParallelPlotKernel {
 }
 
 impl PlotKernel for ParallelPlotKernel {
-	fn layout(&self) -> PlotLayout {
+	fn layout(&self, _settings: PlotSettings) -> PlotLayout {
 		PlotLayout::Parallel {
 			dimensions: self.prepared_data.dimensions.clone(),
 			ranges: self.prepared_data.ranges.clone(),
