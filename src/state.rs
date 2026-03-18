@@ -20,8 +20,11 @@ use crate::plot::kernels::scatter::{self, ScatterPlotKernel};
 use crate::plot::kernels::stacked_area::{self, StackedAreaPlotKernel};
 use crate::plot::kernels::stacked_bar::{self, StackedBarPlotKernel};
 use crate::plot::kernels::violin::{self, ViolinPlotKernel};
-use iced::widget::{canvas, column, container, pick_list, row, text, text_input, tooltip, Tooltip};
-use iced::{window, Element, Length, Size, Task};
+use iced::widget::{
+	button, canvas, column, container, opaque, pick_list, row, scrollable, space, stack, text,
+	text_input, tooltip, Tooltip,
+};
+use iced::{window, Alignment, Element, Length, Size, Task};
 use std::sync::Arc;
 
 const WIDTH: u32 = 1200;
@@ -45,6 +48,7 @@ struct AppState {
 	x_max_input: String,
 	y_min_input: String,
 	y_max_input: String,
+	settings_open: bool,
 }
 
 pub type Result = iced::Result;
@@ -80,6 +84,7 @@ fn new() -> (AppState, Task<Message>) {
 		legend_y_input: plot_settings.legend_y.to_string(),
 		x_rotation_input: plot_settings.x_label_rotation.to_string(),
 		x_offset_input: plot_settings.x_label_offset.to_string(),
+		settings_open: false,
 	};
 	(state, Task::none())
 }
@@ -344,6 +349,14 @@ fn update(state: &mut AppState, message: Message) -> Task<Message> {
 			state.y_max_input = val.map(|v| v.to_string()).unwrap_or_default();
 			Task::none()
 		}
+		Message::ToggleSettings => {
+			state.settings_open = !state.settings_open;
+			Task::none()
+		}
+		Message::CloseSettings => {
+			state.settings_open = false;
+			Task::none()
+		}
 	}
 }
 
@@ -356,156 +369,193 @@ fn view(state: &AppState) -> Element<'_, Message> {
 	})
 	.width(Length::Fill)
 	.height(Length::Fill);
+
 	let plot_content: Element<_> = if let Some(info) = &state.hovered_info {
 		Tooltip::new(
 			canvas_widget,
-			container(text(info))
-				.padding(5)
-				.style(|_| container::Style {
-					background: Some(iced::Background::Color(iced::Color {
-						a: 0.85,
-						..state.plot_settings.background_color
-					})),
-					border: iced::Border {
-						color: iced::Color {
-							a: 0.2,
-							..state.plot_settings.decoration_color
-						},
-						width: 1.0,
-						radius: 2.0.into(),
+			container(text(info)).padding(5).style(|_| container::Style {
+				background: Some(iced::Background::Color(iced::Color {
+					a: 0.85,
+					..state.plot_settings.background_color
+				})),
+				border: iced::Border {
+					color: iced::Color {
+						a: 0.2,
+						..state.plot_settings.decoration_color
 					},
-					text_color: Some(state.plot_settings.decoration_color),
-					..Default::default()
-				}),
+					width: 1.0,
+					radius: 2.0.into(),
+				},
+				text_color: Some(state.plot_settings.decoration_color),
+				..Default::default()
+			}),
 			tooltip::Position::FollowCursor,
 		)
 		.into()
 	} else {
 		canvas_widget.into()
 	};
-	let controls = row![
-		text("Plot Type:"),
-		pick_list(
-			&PlotType::ALL[..],
-			Some(state.current_plot_type),
-			Message::ChangePlotType
-		),
-		text("Theme:"),
-		pick_list(
-			&ColorTheme::ALL[..],
-			Some(state.plot_settings.color_theme),
-			Message::ChangeColorTheme
-		),
-		text("BG:"),
-		text_input("", &state.bg_color_input)
-			.on_input(Message::ChangeBackgroundHex)
-			.width(80),
-		text("Decor:"),
-		text_input("", &state.decoration_color_input)
-			.on_input(Message::ChangeDecorationHex)
-			.width(80),
-		text("Legend Rows:"),
-		text_input("", &state.max_legend_rows_input)
-			.on_input(|s| {
-				if let Ok(rows) = s.parse::<u32>() {
-					Message::SetMaxLegendRows(rows)
-				} else if s.is_empty() {
-					Message::SetMaxLegendRows(0)
-				} else {
-					Message::UpdateHover(state.hovered_info.clone())
-				}
-			})
-			.width(50),
-		text("X:"),
-		text_input("", &state.legend_x_input)
-			.on_input(|s| {
-				if let Ok(x) = s.parse::<f32>() {
-					Message::SetLegendX(x)
-				} else {
-					Message::UpdateHover(state.hovered_info.clone())
-				}
-			})
-			.width(60),
-		text("Y:"),
-		text_input("", &state.legend_y_input)
-			.on_input(|s| {
-				if let Ok(y) = s.parse::<f32>() {
-					Message::SetLegendY(y)
-				} else {
-					Message::UpdateHover(state.hovered_info.clone())
-				}
-			})
-			.width(60),
-		text("Angle:"),
-		text_input("", &state.x_rotation_input)
-			.on_input(|s| {
-				if let Ok(deg) = s.parse::<f32>() {
-					Message::SetXRotation(deg)
-				} else {
-					Message::UpdateHover(state.hovered_info.clone())
-				}
-			})
-			.width(60),
-		text("Offset:"),
-		text_input("", &state.x_offset_input)
-			.on_input(|s| {
-				if let Ok(offset) = s.parse::<f32>() {
-					Message::SetXOffset(offset)
-				} else {
-					Message::UpdateHover(state.hovered_info.clone())
-				}
-			})
-			.width(60),
-		text("X Range:"),
-		text_input("min", &state.x_min_input)
-			.on_input(|s| {
-				if let Ok(val) = s.parse::<f64>() {
-					Message::SetXMin(Some(val))
-				} else if s.is_empty() {
-					Message::SetXMin(None)
-				} else {
-					Message::UpdateHover(state.hovered_info.clone())
-				}
-			})
-			.width(60),
-		text_input("max", &state.x_max_input)
-			.on_input(|s| {
-				if let Ok(val) = s.parse::<f64>() {
-					Message::SetXMax(Some(val))
-				} else if s.is_empty() {
-					Message::SetXMax(None)
-				} else {
-					Message::UpdateHover(state.hovered_info.clone())
-				}
-			})
-			.width(60),
-		text("Y Range:"),
-		text_input("min", &state.y_min_input)
-			.on_input(|s| {
-				if let Ok(val) = s.parse::<f64>() {
-					Message::SetYMin(Some(val))
-				} else if s.is_empty() {
-					Message::SetYMin(None)
-				} else {
-					Message::UpdateHover(state.hovered_info.clone())
-				}
-			})
-			.width(60),
-		text_input("max", &state.y_max_input)
-			.on_input(|s| {
-				if let Ok(val) = s.parse::<f64>() {
-					Message::SetYMax(Some(val))
-				} else if s.is_empty() {
-					Message::SetYMax(None)
-				} else {
-					Message::UpdateHover(state.hovered_info.clone())
-				}
-			})
-			.width(60),
-	]
-	.spacing(10)
-	.padding(5)
-	.align_y(iced::Alignment::Center);
+
+	let mut main_stack = stack![plot_content];
+
+	if state.settings_open {
+		let settings_panel = container(
+			column![
+				row![
+					text("Plot Settings").size(24),
+					space::horizontal(),
+					button("Close").on_press(Message::CloseSettings)
+				]
+				.align_y(Alignment::Center),
+				scrollable(
+					column![
+						section("General", column![
+							field("Plot Type", pick_list(
+								&PlotType::ALL[..],
+								Some(state.current_plot_type),
+								Message::ChangePlotType
+							)),
+							field("Theme", pick_list(
+								&ColorTheme::ALL[..],
+								Some(state.plot_settings.color_theme),
+								Message::ChangeColorTheme
+							)),
+						]),
+						section("Colors", column![
+							field("Background", text_input("", &state.bg_color_input)
+								.on_input(Message::ChangeBackgroundHex)),
+							field("Decoration", text_input("", &state.decoration_color_input)
+								.on_input(Message::ChangeDecorationHex)),
+						]),
+						section("Legend", column![
+							field("Max Rows", text_input("", &state.max_legend_rows_input)
+								.on_input(|s| {
+									if let Ok(rows) = s.parse::<u32>() {
+										Message::SetMaxLegendRows(rows)
+									} else if s.is_empty() {
+										Message::SetMaxLegendRows(0)
+									} else {
+										Message::UpdateHover(state.hovered_info.clone())
+									}
+								})),
+							field("X (0-1)", text_input("", &state.legend_x_input)
+								.on_input(|s| {
+									if let Ok(x) = s.parse::<f32>() {
+										Message::SetLegendX(x)
+									} else {
+										Message::UpdateHover(state.hovered_info.clone())
+									}
+								})),
+							field("Y (0-1)", text_input("", &state.legend_y_input)
+								.on_input(|s| {
+									if let Ok(y) = s.parse::<f32>() {
+										Message::SetLegendY(y)
+									} else {
+										Message::UpdateHover(state.hovered_info.clone())
+									}
+								})),
+						]),
+						section("X Axis Labels", column![
+							field("Rotation", text_input("", &state.x_rotation_input)
+								.on_input(|s| {
+									if let Ok(deg) = s.parse::<f32>() {
+										Message::SetXRotation(deg)
+									} else {
+										Message::UpdateHover(state.hovered_info.clone())
+									}
+								})),
+							field("Offset", text_input("", &state.x_offset_input)
+								.on_input(|s| {
+									if let Ok(offset) = s.parse::<f32>() {
+										Message::SetXOffset(offset)
+									} else {
+										Message::UpdateHover(state.hovered_info.clone())
+									}
+								})),
+						]),
+						section("X Axis Range", column![
+							field("Min", text_input("auto", &state.x_min_input)
+								.on_input(|s| {
+									if let Ok(val) = s.parse::<f64>() {
+										Message::SetXMin(Some(val))
+									} else if s.is_empty() {
+										Message::SetXMin(None)
+									} else {
+										Message::UpdateHover(state.hovered_info.clone())
+									}
+								})),
+							field("Max", text_input("auto", &state.x_max_input)
+								.on_input(|s| {
+									if let Ok(val) = s.parse::<f64>() {
+										Message::SetXMax(Some(val))
+									} else if s.is_empty() {
+										Message::SetXMax(None)
+									} else {
+										Message::UpdateHover(state.hovered_info.clone())
+									}
+								})),
+						]),
+						section("Y Axis Range", column![
+							field("Min", text_input("auto", &state.y_min_input)
+								.on_input(|s| {
+									if let Ok(val) = s.parse::<f64>() {
+										Message::SetYMin(Some(val))
+									} else if s.is_empty() {
+										Message::SetYMin(None)
+									} else {
+										Message::UpdateHover(state.hovered_info.clone())
+									}
+								})),
+							field("Max", text_input("auto", &state.y_max_input)
+								.on_input(|s| {
+									if let Ok(val) = s.parse::<f64>() {
+										Message::SetYMax(Some(val))
+									} else if s.is_empty() {
+										Message::SetYMax(None)
+									} else {
+										Message::UpdateHover(state.hovered_info.clone())
+									}
+								})),
+						]),
+					]
+					.spacing(20)
+				)
+			]
+			.spacing(20)
+			.padding(20)
+		)
+		.width(400)
+		.height(Length::Fill)
+		.style(|_| container::Style {
+			background: Some(iced::Background::Color(iced::Color {
+				a: 0.95,
+				..state.plot_settings.background_color
+			})),
+			border: iced::Border {
+				color: state.plot_settings.decoration_color,
+				width: 1.0,
+				radius: 0.0.into(),
+			},
+			text_color: Some(state.plot_settings.decoration_color),
+			..Default::default()
+		});
+
+		let modal_overlay = container(opaque(
+			row![space::horizontal(), settings_panel].width(Length::Fill),
+		))
+		.width(Length::Fill)
+		.height(Length::Fill)
+		.style(|_| container::Style {
+			background: Some(iced::Background::Color(iced::Color {
+				a: 0.2,
+				..iced::Color::BLACK
+			})),
+			..Default::default()
+		});
+
+		main_stack = main_stack.push(modal_overlay);
+	}
+
 	let container_style = {
 		let bg = state.plot_settings.background_color;
 		let decor = state.plot_settings.decoration_color;
@@ -515,11 +565,31 @@ fn view(state: &AppState) -> Element<'_, Message> {
 			..Default::default()
 		}
 	};
-	container(
-		column![controls, plot_content]
-			.width(Length::Fill)
-			.height(Length::Fill),
-	)
-	.style(container_style)
+	container(main_stack.width(Length::Fill).height(Length::Fill))
+		.style(container_style)
+		.into()
+}
+
+fn section<'a>(title: &'a str, content: impl Into<Element<'a, Message>>) -> Element<'a, Message> {
+	column![
+		text(title).size(18),
+		container(content).padding(10).style(|_| container::Style {
+			border: iced::Border {
+				color: iced::Color { a: 0.2, r: 0.5, g: 0.5, b: 0.5 },
+				width: 1.0,
+				radius: 4.0.into(),
+			},
+			..Default::default()
+		})
+	]
+	.spacing(8)
 	.into()
 }
+
+fn field<'a>(label: &'a str, widget: impl Into<Element<'a, Message>>) -> Element<'a, Message> {
+	row![text(label).width(Length::Fixed(120.0)), widget.into()]
+		.spacing(10)
+		.align_y(Alignment::Center)
+		.into()
+}
+

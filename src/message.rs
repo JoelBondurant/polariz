@@ -21,4 +21,6 @@ pub enum Message {
 	SetXMax(Option<f64>),
 	SetYMin(Option<f64>),
 	SetYMax(Option<f64>),
+	ToggleSettings,
+	CloseSettings,
 }

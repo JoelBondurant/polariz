@@ -239,11 +239,11 @@ pub struct PlotWidget<'a> {
 }
 
 impl<'a> Program<Message> for PlotWidget<'a> {
-	type State = ();
+	type State = Option<std::time::Instant>;
 
 	fn draw(
 		&self,
-		_state: &(),
+		_state: &Self::State,
 		renderer: &Renderer,
 		_theme: &Theme,
 		bounds: Rectangle,
@@ -359,32 +359,47 @@ impl<'a> Program<Message> for PlotWidget<'a> {
 
 	fn update(
 		&self,
-		_state: &mut Self::State,
+		state: &mut Self::State,
 		event: &Event,
 		bounds: Rectangle,
 		cursor: Cursor,
 	) -> Option<canvas::Action<Message>> {
-		if let Event::Mouse(iced::mouse::Event::CursorMoved { .. }) = event {
-			let padding_top = self.padding + 50.0;
-			let padding_bottom = self.padding + 60.0;
-			let padding_left = self.padding + 100.0;
-			let padding_right = self.padding + 20.0;
-			let plot_area = Rectangle {
-				x: padding_left,
-				y: padding_top,
-				width: bounds.width - padding_left - padding_right,
-				height: bounds.height - padding_top - padding_bottom,
-			};
-			let layout = self.kernel.layout(self.settings);
-			let transform = CoordinateTransformer::new(&layout, plot_area);
-			let relative_cursor = match cursor.position() {
-				Some(pos) => Cursor::Available(Point::new(pos.x - bounds.x, pos.y - bounds.y)),
-				None => Cursor::Unavailable,
-			};
-			let hover = self.kernel.hover(&transform, relative_cursor);
-			return Some(canvas::Action::publish(Message::UpdateHover(hover)));
+		match event {
+			Event::Mouse(iced::mouse::Event::CursorMoved { .. }) => {
+				let padding_top = self.padding + 50.0;
+				let padding_bottom = self.padding + 60.0;
+				let padding_left = self.padding + 100.0;
+				let padding_right = self.padding + 20.0;
+				let plot_area = Rectangle {
+					x: padding_left,
+					y: padding_top,
+					width: bounds.width - padding_left - padding_right,
+					height: bounds.height - padding_top - padding_bottom,
+				};
+				let layout = self.kernel.layout(self.settings);
+				let transform = CoordinateTransformer::new(&layout, plot_area);
+				let relative_cursor = match cursor.position() {
+					Some(pos) => Cursor::Available(Point::new(pos.x - bounds.x, pos.y - bounds.y)),
+					None => Cursor::Unavailable,
+				};
+				let hover = self.kernel.hover(&transform, relative_cursor);
+				Some(canvas::Action::publish(Message::UpdateHover(hover)))
+			}
+			Event::Mouse(iced::mouse::Event::ButtonPressed(iced::mouse::Button::Left)) => {
+				if cursor.is_over(bounds) {
+					let now = std::time::Instant::now();
+					if let Some(last_click) = state {
+						if now.duration_since(*last_click) < std::time::Duration::from_millis(500) {
+							*state = None;
+							return Some(canvas::Action::publish(Message::ToggleSettings));
+						}
+					}
+					*state = Some(now);
+				}
+				None
+			}
+			_ => None,
 		}
-		None
 	}
 }
 
