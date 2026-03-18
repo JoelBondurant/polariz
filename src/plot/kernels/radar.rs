@@ -1,4 +1,4 @@
-use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout};
+use crate::plot::common::{CoordinateTransformer, PlotKernel, PlotLayout, PlotSettings};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{Frame, Path, Stroke, Style};
 use iced::{Color, Point, Rectangle};
@@ -21,7 +21,7 @@ impl PlotKernel for RadarPlotKernel {
 		bounds: Rectangle,
 		_transform: &CoordinateTransformer,
 		_cursor: Cursor,
-		settings: crate::plot::PlotSettings,
+		settings: PlotSettings,
 	) {
 		let num_dims = self.prepared_data.dimensions.len();
 		if num_dims < 3 {
@@ -140,12 +140,7 @@ impl PlotKernel for RadarPlotKernel {
 		}
 	}
 
-	fn draw_legend(
-		&self,
-		frame: &mut Frame,
-		bounds: Rectangle,
-		settings: crate::plot::PlotSettings,
-	) {
+	fn draw_legend(&self, frame: &mut Frame, bounds: Rectangle, settings: PlotSettings) {
 		let num_cats = self.prepared_data.category_names.len();
 		if num_cats == 0 {
 			return;
@@ -164,7 +159,10 @@ impl PlotKernel for RadarPlotKernel {
 		frame.fill_rectangle(
 			iced::Point::new(x, y),
 			iced::Size::new(legend_width, legend_height),
-			Color { a: 0.6, ..settings.background_color },
+			Color {
+				a: 0.6,
+				..settings.background_color
+			},
 		);
 		for (i, name) in self.prepared_data.category_names.iter().enumerate() {
 			let t = if num_cats > 1 {

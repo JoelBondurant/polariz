@@ -1,5 +1,5 @@
-use crate::colors::ColorTheme;
-use crate::plot_core::PlotType;
+use crate::plot::colors::ColorTheme;
+use crate::plot::core::PlotType;
 use iced::Color;
 
 #[allow(dead_code)]

@@ -1,4 +1,4 @@
-use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout, AxisType, polars_type_to_axis_type};
+use crate::plot::common::{AxisType, CoordinateTransformer, PlotKernel, PlotLayout, PlotSettings, format_label, polars_type_to_axis_type};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::Frame;
 use iced::{Color, Rectangle};
@@ -26,7 +26,7 @@ impl PlotKernel for HistogramPlotKernel {
 		_bounds: Rectangle,
 		transform: &CoordinateTransformer,
 		_cursor: Cursor,
-		settings: crate::plot::PlotSettings,
+		settings: PlotSettings,
 	) {
 		let num_bins = self.prepared_data.bin_counts.len();
 		let (x_min, x_max) = self.prepared_data.x_range;
@@ -55,7 +55,7 @@ impl PlotKernel for HistogramPlotKernel {
 		}
 	}
 
-	fn draw_legend(&self, frame: &mut Frame, bounds: Rectangle, settings: crate::plot::PlotSettings) {
+	fn draw_legend(&self, frame: &mut Frame, bounds: Rectangle, settings: PlotSettings) {
 		let max_count = self.prepared_data.max_count;
 		let legend_width = 60.0;
 		let legend_height = 200.0;
@@ -137,8 +137,8 @@ impl PlotKernel for HistogramPlotKernel {
 				let bin_end = bin_start + bin_width;
 				return Some(format!(
 					"Range: [{}, {}]\nCount: {}\nY-Value: {:.2}",
-					crate::plot::format_label(bin_start, self.prepared_data.x_axis_type),
-					crate::plot::format_label(bin_end, self.prepared_data.x_axis_type),
+					format_label(bin_start, self.prepared_data.x_axis_type),
+					format_label(bin_end, self.prepared_data.x_axis_type),
 					count, y
 				));
 			}

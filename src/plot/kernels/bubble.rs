@@ -1,4 +1,7 @@
-use crate::plot::{CoordinateTransformer, PlotSettings, PlotKernel, PlotLayout, AxisType, polars_type_to_axis_type};
+use crate::plot::common::{
+	format_label, polars_type_to_axis_type, AxisType, CoordinateTransformer, PlotKernel,
+	PlotLayout, PlotSettings,
+};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{Frame, Path, Stroke, Style, Text};
 use iced::{Color, Pixels, Point, Rectangle};
@@ -48,7 +51,7 @@ impl PlotKernel for BubblePlotKernel {
 		_bounds: Rectangle,
 		transform: &CoordinateTransformer,
 		_cursor: Cursor,
-		settings: crate::plot::PlotSettings,
+		settings: PlotSettings,
 	) {
 		let color_min = self.prepared_data.color_range.0;
 		let color_max = self.prepared_data.color_range.1;
@@ -88,7 +91,10 @@ impl PlotKernel for BubblePlotKernel {
 		frame.fill_rectangle(
 			Point::new(x, y),
 			iced::Size::new(legend_width, legend_height),
-			Color { a: 0.7, ..settings.background_color },
+			Color {
+				a: 0.7,
+				..settings.background_color
+			},
 		);
 		let bar_width = 15.0;
 		let bar_height = legend_height - 80.0;
@@ -154,7 +160,13 @@ impl PlotKernel for BubblePlotKernel {
 				(bar_y + bar_height - min_radius) - t * (bar_height - max_radius - min_radius);
 			let circle_center = Point::new(size_legend_x + 35.0, sample_y);
 			let circle = Path::circle(circle_center, radius);
-			frame.fill(&circle, Color { a: 0.5, ..settings.decoration_color });
+			frame.fill(
+				&circle,
+				Color {
+					a: 0.5,
+					..settings.decoration_color
+				},
+			);
 			frame.stroke(
 				&circle,
 				Stroke {
@@ -191,7 +203,7 @@ impl PlotKernel for BubblePlotKernel {
 						"{}\n{}: {}\n{}: {:.2}\n{}: {:.2}\n{}: {:.2}",
 						point.label,
 						self.prepared_data.x_label,
-						crate::plot::format_label(point.x, self.prepared_data.x_axis_type),
+						format_label(point.x, self.prepared_data.x_axis_type),
 						self.prepared_data.y_label,
 						point.y,
 						self.prepared_data.size_label,

@@ -1,4 +1,4 @@
-use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout, AxisType, TimeUnit};
+use crate::plot::common::{AxisType, CoordinateTransformer, PlotKernel, PlotLayout, PlotSettings, format_label, polars_type_to_axis_type};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{Frame, Path, Stroke, Style};
 use iced::Rectangle;
@@ -26,7 +26,7 @@ impl PlotKernel for LinePlotKernel {
 		_bounds: Rectangle,
 		transform: &CoordinateTransformer,
 		_cursor: Cursor,
-		settings: crate::plot::PlotSettings,
+		settings: PlotSettings,
 	) {
 		for series in &self.prepared_data.series {
 			let color = settings.color_theme.get_color(series.color_t);
@@ -53,13 +53,13 @@ impl PlotKernel for LinePlotKernel {
 		if let Some(cursor_pos) = cursor.position()
 			&& let Some((x, y)) = transform.pixel_to_cartesian(cursor_pos) {
 			return Some(format!("X: {}, Y: {}", 
-				crate::plot::format_label(x, self.prepared_data.x_axis_type),
-				crate::plot::format_label(y, self.prepared_data.y_axis_type)));
+				format_label(x, self.prepared_data.x_axis_type),
+				format_label(y, self.prepared_data.y_axis_type)));
 		}
 		None
 	}
 
-	fn draw_legend(&self, frame: &mut Frame, bounds: Rectangle, settings: crate::plot::PlotSettings) {
+	fn draw_legend(&self, frame: &mut Frame, bounds: Rectangle, settings: PlotSettings) {
 		let num_series = self.prepared_data.series.len();
 		if num_series == 0 { return; }
 		let max_rows = settings.max_legend_rows.max(1) as usize;
@@ -130,22 +130,6 @@ pub struct LinePreparedData {
 	pub y_axis_type: AxisType,
 	pub x_label: String,
 	pub y_label: String,
-}
-
-fn polars_type_to_axis_type(dt: &DataType) -> AxisType {
-	match dt {
-		DataType::Date => AxisType::Date,
-		DataType::Datetime(unit, _) => {
-			let tu = match unit {
-				polars::prelude::TimeUnit::Nanoseconds => TimeUnit::Nanoseconds,
-				polars::prelude::TimeUnit::Microseconds => TimeUnit::Microseconds,
-				polars::prelude::TimeUnit::Milliseconds => TimeUnit::Milliseconds,
-			};
-			AxisType::Datetime(tu)
-		}
-		DataType::Time => AxisType::Time,
-		_ => AxisType::Linear,
-	}
 }
 
 pub fn prepare_line_data(

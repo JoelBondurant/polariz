@@ -1,4 +1,4 @@
-use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout, AxisType};
+use crate::plot::common::{AxisType, CoordinateTransformer, PlotKernel, PlotLayout, PlotSettings};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{Frame, Path, Stroke, Style};
 use iced::{Color, Rectangle};
@@ -27,7 +27,7 @@ impl PlotKernel for HexbinPlotKernel {
 		bounds: Rectangle,
 		transform: &CoordinateTransformer,
 		_cursor: Cursor,
-		settings: crate::plot::PlotSettings,
+		settings: PlotSettings,
 	) {
 		let radius = self.prepared_data.radius as f64;
 		let sqrt_3 = 3.0f64.sqrt();
@@ -64,7 +64,7 @@ impl PlotKernel for HexbinPlotKernel {
 		});
 	}
 
-	fn draw_legend(&self, frame: &mut Frame, bounds: Rectangle, settings: crate::plot::PlotSettings) {
+	fn draw_legend(&self, frame: &mut Frame, bounds: Rectangle, settings: PlotSettings) {
 		let max_count = self.prepared_data.max_count;
 		let legend_width = 60.0;
 		let legend_height = 200.0;

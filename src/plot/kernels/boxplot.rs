@@ -1,4 +1,4 @@
-use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout, AxisType, polars_type_to_axis_type};
+use crate::plot::common::{AxisType, CoordinateTransformer, PlotKernel, PlotLayout, PlotSettings, format_label, polars_type_to_axis_type};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{Frame, Path, Stroke, Style};
 use iced::{Color, Rectangle};
@@ -23,7 +23,7 @@ impl PlotKernel for BoxPlotKernel {
 		_bounds: Rectangle,
 		transform: &CoordinateTransformer,
 		_cursor: Cursor,
-		settings: crate::plot::PlotSettings,
+		settings: PlotSettings,
 	) {
 		let num_cats = self.prepared_data.categories.len();
 		for (i, stats) in self.prepared_data.stats.iter().enumerate() {
@@ -113,11 +113,11 @@ impl PlotKernel for BoxPlotKernel {
 						return Some(format!(
 							"{}\nMax: {}\nQ3: {}\nMedian: {}\nQ1: {}\nMin: {}",
 							category,
-							crate::plot::format_label(stats.max, yt),
-							crate::plot::format_label(stats.q3, yt),
-							crate::plot::format_label(stats.median, yt),
-							crate::plot::format_label(stats.q1, yt),
-							crate::plot::format_label(stats.min, yt)
+							format_label(stats.max, yt),
+							format_label(stats.q3, yt),
+							format_label(stats.median, yt),
+							format_label(stats.q1, yt),
+							format_label(stats.min, yt)
 						));
 					}
 				}
@@ -126,7 +126,7 @@ impl PlotKernel for BoxPlotKernel {
 		None
 	}
 
-	fn draw_legend(&self, frame: &mut Frame, bounds: Rectangle, settings: crate::plot::PlotSettings) {
+	fn draw_legend(&self, frame: &mut Frame, bounds: Rectangle, settings: PlotSettings) {
 		let num_cats = self.prepared_data.categories.len();
 		if num_cats == 0 { return; }
 		let max_rows = settings.max_legend_rows.max(1) as usize;

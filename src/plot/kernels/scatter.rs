@@ -1,4 +1,4 @@
-use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout, AxisType, polars_type_to_axis_type};
+use crate::plot::common::{AxisType, CoordinateTransformer, PlotKernel, PlotLayout, PlotSettings, format_label, polars_type_to_axis_type};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{Frame, Path};
 use iced::{Color, Rectangle};
@@ -26,7 +26,7 @@ impl PlotKernel for ScatterPlotKernel {
 		_bounds: Rectangle,
 		transform: &CoordinateTransformer,
 		_cursor: Cursor,
-		settings: crate::plot::PlotSettings,
+		settings: PlotSettings,
 	) {
 		for series in &self.prepared_data.series {
 			let color = settings.color_theme.get_color(series.color_t);
@@ -40,7 +40,7 @@ impl PlotKernel for ScatterPlotKernel {
 		}
 	}
 
-	fn draw_legend(&self, frame: &mut Frame, bounds: Rectangle, settings: crate::plot::PlotSettings) {
+	fn draw_legend(&self, frame: &mut Frame, bounds: Rectangle, settings: PlotSettings) {
 		let num_series = self.prepared_data.series.len();
 		if num_series == 0 { return; }
 		let max_rows = settings.max_legend_rows.max(1) as usize;
@@ -86,8 +86,8 @@ impl PlotKernel for ScatterPlotKernel {
 		if let Some(cursor_pos) = cursor.position()
 			&& let Some((x, y)) = transform.pixel_to_cartesian(cursor_pos) {
 			return Some(format!("X: {}, Y: {}", 
-				crate::plot::format_label(x, self.prepared_data.x_axis_type),
-				crate::plot::format_label(y, self.prepared_data.y_axis_type)));
+				format_label(x, self.prepared_data.x_axis_type),
+				format_label(y, self.prepared_data.y_axis_type)));
 		}
 		None
 	}

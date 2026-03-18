@@ -1,4 +1,4 @@
-use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout, AxisType, polars_type_to_axis_type};
+use crate::plot::common::{AxisType, CoordinateTransformer, PlotKernel, PlotLayout, PlotSettings, format_label, polars_type_to_axis_type};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{Frame, Path, Stroke, Style};
 use iced::{Point, Rectangle, Size};
@@ -26,7 +26,7 @@ impl PlotKernel for CandlestickPlotKernel {
 		_bounds: Rectangle,
 		transform: &CoordinateTransformer,
 		_cursor: Cursor,
-		settings: crate::plot::PlotSettings,
+		settings: PlotSettings,
 	) {
 		let n = self.prepared_data.x.len();
 		if n == 0 { return; }
@@ -101,7 +101,7 @@ impl PlotKernel for CandlestickPlotKernel {
 			if dist_px > 10.0 { return None; }
 			return Some(format!(
 				"X: {}\nOpen: {:.2}\nHigh: {:.2}\nLow: {:.2}\nClose: {:.2}",
-				crate::plot::format_label(xs[idx], self.prepared_data.x_axis_type),
+				format_label(xs[idx], self.prepared_data.x_axis_type),
 				self.prepared_data.open[idx],
 				self.prepared_data.high[idx],
 				self.prepared_data.low[idx],

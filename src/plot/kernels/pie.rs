@@ -1,4 +1,4 @@
-use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout};
+use crate::plot::common::{CoordinateTransformer, PlotKernel, PlotLayout, PlotSettings};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{Frame, Path, Stroke, Style};
 use iced::{Color, Point, Rectangle};
@@ -21,7 +21,7 @@ impl PlotKernel for PiePlotKernel {
 		_bounds: Rectangle,
 		transform: &CoordinateTransformer,
 		_cursor: Cursor,
-		settings: crate::plot::PlotSettings,
+		settings: PlotSettings,
 	) {
 		let center = transform.bounds.center();
 		let radius = transform.bounds.width.min(transform.bounds.height) * 0.45;
@@ -110,12 +110,7 @@ impl PlotKernel for PiePlotKernel {
 		None
 	}
 
-	fn draw_legend(
-		&self,
-		frame: &mut Frame,
-		bounds: Rectangle,
-		settings: crate::plot::PlotSettings,
-	) {
+	fn draw_legend(&self, frame: &mut Frame, bounds: Rectangle, settings: PlotSettings) {
 		let num_cats = self.prepared_data.categories.len();
 		if num_cats == 0 {
 			return;
@@ -134,7 +129,10 @@ impl PlotKernel for PiePlotKernel {
 		frame.fill_rectangle(
 			iced::Point::new(x, y),
 			iced::Size::new(legend_width, legend_height),
-			Color { a: 0.6, ..settings.background_color },
+			Color {
+				a: 0.6,
+				..settings.background_color
+			},
 		);
 		for (i, name) in self.prepared_data.categories.iter().enumerate() {
 			let t = if num_cats > 1 {

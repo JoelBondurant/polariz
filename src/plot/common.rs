@@ -1,9 +1,15 @@
-use crate::colors::ColorTheme;
 use crate::message::Message;
+use crate::plot::colors::ColorTheme;
 use iced::advanced::mouse::Cursor;
 use iced::alignment;
 use iced::widget::canvas::{self, Frame, Geometry, Path, Program, Stroke, Style, Text};
 use iced::{Color, Event, Point, Rectangle, Renderer, Theme};
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Orientation {
+	Vertical,
+	Horizontal,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TimeUnit {
@@ -252,8 +258,13 @@ impl<'a> Program<Message> for PlotWidget<'a> {
 			Some(pos) => Cursor::Available(Point::new(pos.x - bounds.x, pos.y - bounds.y)),
 			None => Cursor::Unavailable,
 		};
-		self.kernel
-			.plot(&mut frame, plot_area, &transform, relative_cursor, self.settings);
+		self.kernel.plot(
+			&mut frame,
+			plot_area,
+			&transform,
+			relative_cursor,
+			self.settings,
+		);
 		match &layout {
 			PlotLayout::Cartesian {
 				x_range, y_range, ..

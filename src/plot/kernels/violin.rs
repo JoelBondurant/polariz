@@ -1,4 +1,4 @@
-use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout, PlotSettings};
+use crate::plot::common::{CoordinateTransformer, PlotKernel, PlotLayout, PlotSettings};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{self, Frame, Path, Stroke, Style};
 use iced::{Color, Rectangle};

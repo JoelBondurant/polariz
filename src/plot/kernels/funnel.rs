@@ -1,4 +1,4 @@
-use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout, PlotSettings};
+use crate::plot::common::{CoordinateTransformer, PlotKernel, PlotLayout, PlotSettings};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{Frame, Path, Stroke, Style, Text};
 use iced::{Color, Pixels, Point, Rectangle};
@@ -28,7 +28,7 @@ impl PlotKernel for FunnelPlotKernel {
 		bounds: Rectangle,
 		_transform: &CoordinateTransformer,
 		_cursor: Cursor,
-		settings: crate::plot::PlotSettings,
+		settings: PlotSettings,
 	) {
 		let num_stages = self.prepared_data.stages.len();
 		if num_stages == 0 {
@@ -64,7 +64,10 @@ impl PlotKernel for FunnelPlotKernel {
 			frame.stroke(
 				&trapezoid,
 				Stroke {
-					style: Style::Solid(Color { a: 0.2, ..settings.decoration_color }),
+					style: Style::Solid(Color {
+						a: 0.2,
+						..settings.decoration_color
+					}),
 					width: 1.0,
 					..Default::default()
 				},
@@ -100,7 +103,10 @@ impl PlotKernel for FunnelPlotKernel {
 		frame.fill_rectangle(
 			Point::new(x, y),
 			iced::Size::new(legend_width, legend_height),
-			Color { a: 0.6, ..settings.background_color },
+			Color {
+				a: 0.6,
+				..settings.background_color
+			},
 		);
 		for (i, name) in self.prepared_data.stages.iter().enumerate() {
 			let t = if num_cats > 1 {

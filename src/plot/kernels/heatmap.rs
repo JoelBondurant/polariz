@@ -1,4 +1,4 @@
-use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout};
+use crate::plot::common::{CoordinateTransformer, PlotKernel, PlotLayout, PlotSettings};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{Frame, Stroke, Style};
 use iced::{Color, Point, Rectangle, Size};
@@ -23,7 +23,7 @@ impl PlotKernel for HeatmapPlotKernel {
 		_bounds: Rectangle,
 		transform: &CoordinateTransformer,
 		_cursor: Cursor,
-		settings: crate::plot::PlotSettings,
+		settings: PlotSettings,
 	) {
 		let num_x = self.prepared_data.x_categories.len();
 		let num_y = self.prepared_data.y_categories.len();
@@ -31,7 +31,11 @@ impl PlotKernel for HeatmapPlotKernel {
 		for i in 0..num_x {
 			for j in 0..num_y {
 				let val = self.prepared_data.values[i][j];
-				let t = if max_val > 0.0 { (val / max_val) as f32 } else { 0.0 };
+				let t = if max_val > 0.0 {
+					(val / max_val) as f32
+				} else {
+					0.0
+				};
 				let color = settings.color_theme.get_color(t);
 				let (center, bw, bh) = transform.categorical_2d(i, j);
 				let rect_x = center.x - bw / 2.0;
@@ -77,12 +81,7 @@ impl PlotKernel for HeatmapPlotKernel {
 		None
 	}
 
-	fn draw_legend(
-		&self,
-		frame: &mut Frame,
-		bounds: Rectangle,
-		settings: crate::plot::PlotSettings,
-	) {
+	fn draw_legend(&self, frame: &mut Frame, bounds: Rectangle, settings: PlotSettings) {
 		let max_val = self.prepared_data.max_val;
 		let legend_width = 60.0;
 		let legend_height = 200.0;
@@ -92,7 +91,10 @@ impl PlotKernel for HeatmapPlotKernel {
 		frame.fill_rectangle(
 			Point::new(x, y),
 			Size::new(legend_width, legend_height),
-			Color { a: 0.6, ..settings.background_color },
+			Color {
+				a: 0.6,
+				..settings.background_color
+			},
 		);
 		let bar_width = 15.0;
 		let bar_height = legend_height - 55.0;

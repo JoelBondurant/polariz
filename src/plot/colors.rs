@@ -445,6 +445,7 @@ pub fn hex_to_color(hex: &str) -> Option<Color> {
 		_ => None,
 	}
 }
+
 pub fn contrast_color(bg: Color) -> Color {
 	let luminance = 0.299 * bg.r + 0.587 * bg.g + 0.114 * bg.b;
 	if luminance > 0.5 {

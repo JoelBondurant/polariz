@@ -1,4 +1,4 @@
-use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout, AxisType, polars_type_to_axis_type};
+use crate::plot::common::{AxisType, CoordinateTransformer, PlotKernel, PlotLayout, PlotSettings, format_label, polars_type_to_axis_type};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{Frame, Path, Stroke, Style};
 use iced::Rectangle;
@@ -26,7 +26,7 @@ impl PlotKernel for FillBetweenPlotKernel {
 		_bounds: Rectangle,
 		transform: &CoordinateTransformer,
 		_cursor: Cursor,
-		settings: crate::plot::PlotSettings,
+		settings: PlotSettings,
 	) {
 		if self.prepared_data.x.is_empty() {
 			return;
@@ -95,7 +95,7 @@ impl PlotKernel for FillBetweenPlotKernel {
 			};
 			return Some(format!(
 				"X: {}\nMid: {:.2}\nRange: [{:.2}, {:.2}]\nCursor Y: {:.2}",
-				crate::plot::format_label(xs[idx], self.prepared_data.x_axis_type),
+				format_label(xs[idx], self.prepared_data.x_axis_type),
 				self.prepared_data.y_mid[idx],
 				self.prepared_data.y_lower[idx],
 				self.prepared_data.y_upper[idx],

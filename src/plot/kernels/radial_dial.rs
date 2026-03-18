@@ -1,4 +1,4 @@
-use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout};
+use crate::plot::common::{CoordinateTransformer, PlotKernel, PlotLayout, PlotSettings};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{Frame, Path};
 use iced::{Color, Point, Rectangle};
@@ -20,7 +20,7 @@ impl PlotKernel for RadialDialPlotKernel {
 		bounds: Rectangle,
 		_transform: &CoordinateTransformer,
 		_cursor: Cursor,
-		settings: crate::plot::PlotSettings,
+		settings: PlotSettings,
 	) {
 		let num_cats = self.prepared_data.categories.len();
 		if num_cats == 0 {
@@ -106,12 +106,7 @@ impl PlotKernel for RadialDialPlotKernel {
 		}
 	}
 
-	fn draw_legend(
-		&self,
-		frame: &mut Frame,
-		bounds: Rectangle,
-		settings: crate::plot::PlotSettings,
-	) {
+	fn draw_legend(&self, frame: &mut Frame, bounds: Rectangle, settings: PlotSettings) {
 		let num_cats = self.prepared_data.categories.len();
 		if num_cats == 0 {
 			return;
@@ -130,7 +125,10 @@ impl PlotKernel for RadialDialPlotKernel {
 		frame.fill_rectangle(
 			iced::Point::new(x, y),
 			iced::Size::new(legend_width, legend_height),
-			Color { a: 0.6, ..settings.background_color },
+			Color {
+				a: 0.6,
+				..settings.background_color
+			},
 		);
 		for (i, name) in self.prepared_data.categories.iter().enumerate() {
 			let t = if num_cats > 1 {

@@ -1,25 +1,25 @@
-use crate::bar::{self, BarPlotKernel};
-use crate::box_plot::{self, BoxPlotKernel};
-use crate::bubble::{self, BubblePlotKernel};
-use crate::candlestick::{self, CandlestickPlotKernel};
-use crate::colors::{self, ColorTheme};
-use crate::fill_between::{self, FillBetweenPlotKernel};
-use crate::funnel::{self, FunnelPlotKernel};
-use crate::heatmap::{self, HeatmapPlotKernel};
-use crate::hexbin::{self, HexbinPlotKernel};
-use crate::histogram::{self, HistogramPlotKernel};
-use crate::line::{self, LinePlotKernel};
 use crate::message::Message;
-use crate::parallel::{self, ParallelPlotKernel};
-use crate::pie::{self, PiePlotKernel};
-use crate::plot::{PlotKernel, PlotSettings, PlotWidget};
-use crate::plot_core::PlotType;
-use crate::radar::{self, RadarPlotKernel};
-use crate::radial_dial::{self, RadialDialPlotKernel};
-use crate::scatter::{self, ScatterPlotKernel};
-use crate::stacked_area::{self, StackedAreaPlotKernel};
-use crate::stacked_bar::{self, StackedBarPlotKernel};
-use crate::violin::{self, ViolinPlotKernel};
+use crate::plot::colors::{self, ColorTheme};
+use crate::plot::common::{Orientation, PlotKernel, PlotSettings, PlotWidget};
+use crate::plot::core::PlotType;
+use crate::plot::kernels::bar::{self, BarPlotKernel};
+use crate::plot::kernels::boxplot::{self, BoxPlotKernel};
+use crate::plot::kernels::bubble::{self, BubblePlotKernel};
+use crate::plot::kernels::candlestick::{self, CandlestickPlotKernel};
+use crate::plot::kernels::fill_between::{self, FillBetweenPlotKernel};
+use crate::plot::kernels::funnel::{self, FunnelPlotKernel};
+use crate::plot::kernels::heatmap::{self, HeatmapPlotKernel};
+use crate::plot::kernels::hexbin::{self, HexbinPlotKernel};
+use crate::plot::kernels::histogram::{self, HistogramPlotKernel};
+use crate::plot::kernels::line::{self, LinePlotKernel};
+use crate::plot::kernels::parallel::{self, ParallelPlotKernel};
+use crate::plot::kernels::pie::{self, PiePlotKernel};
+use crate::plot::kernels::radar::{self, RadarPlotKernel};
+use crate::plot::kernels::radial_dial::{self, RadialDialPlotKernel};
+use crate::plot::kernels::scatter::{self, ScatterPlotKernel};
+use crate::plot::kernels::stacked_area::{self, StackedAreaPlotKernel};
+use crate::plot::kernels::stacked_bar::{self, StackedBarPlotKernel};
+use crate::plot::kernels::violin::{self, ViolinPlotKernel};
 use iced::widget::{canvas, column, container, pick_list, row, text, text_input, tooltip, Tooltip};
 use iced::{window, Element, Length, Size, Task};
 use std::sync::Arc;
@@ -104,7 +104,7 @@ fn create_plot(plot_type: PlotType, width: u32, height: u32) -> Box<dyn PlotKern
 			let prepared = bar::prepare_bar_data(&df, "cat", "group", "val");
 			Box::new(BarPlotKernel {
 				prepared_data: Arc::new(prepared),
-				orientation: bar::Orientation::Vertical,
+				orientation: Orientation::Vertical,
 			})
 		}
 		PlotType::HorizontalBar => {
@@ -112,7 +112,7 @@ fn create_plot(plot_type: PlotType, width: u32, height: u32) -> Box<dyn PlotKern
 			let prepared = bar::prepare_bar_data(&df, "cat", "group", "val");
 			Box::new(BarPlotKernel {
 				prepared_data: Arc::new(prepared),
-				orientation: bar::Orientation::Horizontal,
+				orientation: Orientation::Horizontal,
 			})
 		}
 		PlotType::Scatter => {
@@ -127,7 +127,7 @@ fn create_plot(plot_type: PlotType, width: u32, height: u32) -> Box<dyn PlotKern
 			let prepared = stacked_bar::prepare_stacked_bar_data(&df, "cat", "group", "val");
 			Box::new(StackedBarPlotKernel {
 				prepared_data: Arc::new(prepared),
-				orientation: bar::Orientation::Vertical,
+				orientation: Orientation::Vertical,
 			})
 		}
 		PlotType::HorizontalStackedBar => {
@@ -135,7 +135,7 @@ fn create_plot(plot_type: PlotType, width: u32, height: u32) -> Box<dyn PlotKern
 			let prepared = stacked_bar::prepare_stacked_bar_data(&df, "cat", "group", "val");
 			Box::new(StackedBarPlotKernel {
 				prepared_data: Arc::new(prepared),
-				orientation: bar::Orientation::Horizontal,
+				orientation: Orientation::Horizontal,
 			})
 		}
 		PlotType::Pie => {
@@ -147,7 +147,7 @@ fn create_plot(plot_type: PlotType, width: u32, height: u32) -> Box<dyn PlotKern
 		}
 		PlotType::BoxPlot => {
 			let df = violin::generate_sample_data();
-			let prepared = box_plot::prepare_box_plot_data(&df, "group", "y");
+			let prepared = boxplot::prepare_box_plot_data(&df, "group", "y");
 			Box::new(BoxPlotKernel {
 				prepared_data: Arc::new(prepared),
 			})
@@ -290,7 +290,8 @@ fn update(state: &mut AppState, message: Message) -> Task<Message> {
 			state.plot_settings.background_color = color;
 			state.bg_color_input = colors::color_to_hex(color);
 			state.plot_settings.decoration_color = colors::contrast_color(color);
-			state.decoration_color_input = colors::color_to_hex(state.plot_settings.decoration_color);
+			state.decoration_color_input =
+				colors::color_to_hex(state.plot_settings.decoration_color);
 			Task::none()
 		}
 		Message::ChangeBackgroundHex(hex) => {
@@ -298,7 +299,8 @@ fn update(state: &mut AppState, message: Message) -> Task<Message> {
 			if let Some(color) = colors::hex_to_color(&hex) {
 				state.plot_settings.background_color = color;
 				state.plot_settings.decoration_color = colors::contrast_color(color);
-				state.decoration_color_input = colors::color_to_hex(state.plot_settings.decoration_color);
+				state.decoration_color_input =
+					colors::color_to_hex(state.plot_settings.decoration_color);
 			}
 			Task::none()
 		}
@@ -430,7 +432,6 @@ fn view(state: &AppState) -> Element<'_, Message> {
 	.spacing(10)
 	.padding(5)
 	.align_y(iced::Alignment::Center);
-
 	let container_style = {
 		let bg = state.plot_settings.background_color;
 		let decor = state.plot_settings.decoration_color;
@@ -440,7 +441,6 @@ fn view(state: &AppState) -> Element<'_, Message> {
 			..Default::default()
 		}
 	};
-
 	container(
 		column![controls, plot_content]
 			.width(Length::Fill)
