@@ -80,7 +80,7 @@ impl PlotKernel for RadarPlotKernel {
 					center.x + (max_radius + 20.0) * angle.cos(),
 					center.y + (max_radius + 20.0) * angle.sin(),
 				),
-				color: Color::WHITE,
+				color: settings.decoration_color,
 				size: iced::Pixels(14.0),
 				align_x: if angle.cos().abs() < 0.1 {
 					iced::alignment::Horizontal::Center.into()
@@ -164,7 +164,7 @@ impl PlotKernel for RadarPlotKernel {
 		frame.fill_rectangle(
 			iced::Point::new(x, y),
 			iced::Size::new(legend_width, legend_height),
-			Color::from_rgba(0.0, 0.0, 0.0, 0.6),
+			Color { a: 0.6, ..settings.background_color },
 		);
 		for (i, name) in self.prepared_data.category_names.iter().enumerate() {
 			let t = if num_cats > 1 {
@@ -185,7 +185,7 @@ impl PlotKernel for RadarPlotKernel {
 			frame.fill_text(iced::widget::canvas::Text {
 				content: name.clone(),
 				position: iced::Point::new(item_x + rect_size + 10.0, item_y + item_height / 2.0),
-				color: Color::WHITE,
+				color: settings.decoration_color,
 				size: iced::Pixels(14.0),
 				align_x: iced::alignment::Horizontal::Left.into(),
 				align_y: iced::alignment::Vertical::Center,

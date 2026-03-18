@@ -1,6 +1,8 @@
 use crate::colors::ColorTheme;
 use crate::plot_core::PlotType;
+use iced::Color;
 
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub enum Message {
 	UpdateHover(Option<String>),
@@ -11,4 +13,8 @@ pub enum Message {
 	SetXRotation(f32),
 	SetXOffset(f32),
 	ChangeColorTheme(ColorTheme),
+	ChangeBackgroundColor(Color),
+	ChangeBackgroundHex(String),
+	ChangeDecorationColor(Color),
+	ChangeDecorationHex(String),
 }

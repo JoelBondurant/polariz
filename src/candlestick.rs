@@ -1,7 +1,7 @@
 use crate::plot::{CoordinateTransformer, PlotKernel, PlotLayout, AxisType, polars_type_to_axis_type};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{Frame, Path, Stroke, Style};
-use iced::{Color, Point, Rectangle, Size};
+use iced::{Point, Rectangle, Size};
 use polars::prelude::*;
 use rand::RngExt;
 use std::sync::Arc;
@@ -76,7 +76,7 @@ impl PlotKernel for CandlestickPlotKernel {
 				builder.line_to(Point::new(p_close.x + candle_width / 2.0, p_close.y));
 			});
 			frame.stroke(&marks_path, Stroke {
-				style: Style::Solid(Color::WHITE),
+				style: Style::Solid(settings.decoration_color),
 				width: 2.0,
 				..Default::default()
 			});

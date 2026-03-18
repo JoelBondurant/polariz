@@ -92,7 +92,7 @@ impl PlotKernel for HeatmapPlotKernel {
 		frame.fill_rectangle(
 			Point::new(x, y),
 			Size::new(legend_width, legend_height),
-			Color::from_rgba(0.0, 0.0, 0.0, 0.6),
+			Color { a: 0.6, ..settings.background_color },
 		);
 		let bar_width = 15.0;
 		let bar_height = legend_height - 55.0;
@@ -116,7 +116,7 @@ impl PlotKernel for HeatmapPlotKernel {
 				Size::new(bar_width, bar_height),
 			),
 			Stroke {
-				style: Style::Solid(Color::WHITE),
+				style: Style::Solid(settings.decoration_color),
 				width: 1.0,
 				..Default::default()
 			},
@@ -125,7 +125,7 @@ impl PlotKernel for HeatmapPlotKernel {
 		frame.fill_text(iced::widget::canvas::Text {
 			content: format!("{:.1}", max_val),
 			position: Point::new(label_x, bar_y),
-			color: Color::WHITE,
+			color: settings.decoration_color,
 			size: iced::Pixels(12.0),
 			align_y: iced::alignment::Vertical::Top,
 			..Default::default()
@@ -133,7 +133,7 @@ impl PlotKernel for HeatmapPlotKernel {
 		frame.fill_text(iced::widget::canvas::Text {
 			content: "0.0".to_string(),
 			position: Point::new(label_x, bar_y + bar_height),
-			color: Color::WHITE,
+			color: settings.decoration_color,
 			size: iced::Pixels(12.0),
 			align_y: iced::alignment::Vertical::Bottom,
 			..Default::default()

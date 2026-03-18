@@ -57,7 +57,7 @@ impl PlotKernel for ScatterPlotKernel {
 		frame.fill_rectangle(
 			iced::Point::new(x, y),
 			iced::Size::new(legend_width, legend_height),
-			Color::from_rgba(0.0, 0.0, 0.0, 0.6)
+			Color { a: 0.6, ..settings.background_color }
 		);
 		for (i, series) in self.prepared_data.series.iter().enumerate() {
 			let color = settings.color_theme.get_color(series.color_t);
@@ -73,7 +73,7 @@ impl PlotKernel for ScatterPlotKernel {
 			frame.fill_text(iced::widget::canvas::Text {
 				content: series.name.clone(),
 				position: iced::Point::new(item_x + swatch_size + 10.0, item_y + item_height / 2.0),
-				color: Color::WHITE,
+				color: settings.decoration_color,
 				size: iced::Pixels(14.0),
 				align_x: iced::alignment::Horizontal::Left.into(),
 				align_y: iced::alignment::Vertical::Center,

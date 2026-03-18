@@ -64,7 +64,7 @@ impl PlotKernel for FunnelPlotKernel {
 			frame.stroke(
 				&trapezoid,
 				Stroke {
-					style: Style::Solid(Color::from_rgba(1.0, 1.0, 1.0, 0.2)),
+					style: Style::Solid(Color { a: 0.2, ..settings.decoration_color }),
 					width: 1.0,
 					..Default::default()
 				},
@@ -72,7 +72,7 @@ impl PlotKernel for FunnelPlotKernel {
 			frame.fill_text(Text {
 				content: format!("{:.0}", val),
 				position: Point::new(center_x, y_top + stage_height / 2.0),
-				color: Color::WHITE,
+				color: settings.decoration_color,
 				size: Pixels(16.0),
 				align_x: iced::alignment::Horizontal::Center.into(),
 				align_y: iced::alignment::Vertical::Center,
@@ -100,7 +100,7 @@ impl PlotKernel for FunnelPlotKernel {
 		frame.fill_rectangle(
 			Point::new(x, y),
 			iced::Size::new(legend_width, legend_height),
-			Color::from_rgba(0.0, 0.0, 0.0, 0.6),
+			Color { a: 0.6, ..settings.background_color },
 		);
 		for (i, name) in self.prepared_data.stages.iter().enumerate() {
 			let t = if num_cats > 1 {
@@ -121,7 +121,7 @@ impl PlotKernel for FunnelPlotKernel {
 			frame.fill_text(Text {
 				content: name.clone(),
 				position: Point::new(item_x + rect_size + 10.0, item_y + item_height / 2.0),
-				color: Color::WHITE,
+				color: settings.decoration_color,
 				size: Pixels(14.0),
 				align_x: iced::alignment::Horizontal::Left.into(),
 				align_y: iced::alignment::Vertical::Center,

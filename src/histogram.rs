@@ -65,7 +65,7 @@ impl PlotKernel for HistogramPlotKernel {
 		frame.fill_rectangle(
 			iced::Point::new(x, y),
 			iced::Size::new(legend_width, legend_height),
-			Color::from_rgba(0.0, 0.0, 0.0, 0.6)
+			Color { a: 0.6, ..settings.background_color }
 		);
 		let bar_width = 15.0;
 		let bar_height = legend_height - 55.0;
@@ -86,7 +86,7 @@ impl PlotKernel for HistogramPlotKernel {
 		frame.stroke(
 			&iced::widget::canvas::Path::rectangle(iced::Point::new(bar_x, bar_y), iced::Size::new(bar_width, bar_height)),
 			iced::widget::canvas::Stroke {
-				style: iced::widget::canvas::Style::Solid(Color::WHITE),
+				style: iced::widget::canvas::Style::Solid(settings.decoration_color),
 				width: 1.0,
 				..Default::default()
 			}
@@ -95,7 +95,7 @@ impl PlotKernel for HistogramPlotKernel {
 		frame.fill_text(iced::widget::canvas::Text {
 			content: format!("{}", max_count),
 			position: iced::Point::new(label_x, bar_y),
-			color: Color::WHITE,
+			color: settings.decoration_color,
 			size: iced::Pixels(12.0),
 			align_y: iced::alignment::Vertical::Top,
 			..Default::default()
@@ -103,7 +103,7 @@ impl PlotKernel for HistogramPlotKernel {
 		frame.fill_text(iced::widget::canvas::Text {
 			content: "0".to_string(),
 			position: iced::Point::new(label_x, bar_y + bar_height),
-			color: Color::WHITE,
+			color: settings.decoration_color,
 			size: iced::Pixels(12.0),
 			align_y: iced::alignment::Vertical::Bottom,
 			..Default::default()
@@ -111,7 +111,7 @@ impl PlotKernel for HistogramPlotKernel {
 		frame.fill_text(iced::widget::canvas::Text {
 			content: "Frequency".to_string(),
 			position: iced::Point::new(x + legend_width / 2.0, y + 10.0),
-			color: Color::WHITE,
+			color: settings.decoration_color,
 			size: iced::Pixels(16.0),
 			align_x: iced::alignment::Horizontal::Center.into(),
 			align_y: iced::alignment::Vertical::Top,

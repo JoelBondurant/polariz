@@ -173,6 +173,8 @@ pub struct PlotSettings {
 	pub x_label_rotation: f32,
 	pub x_label_offset: f32,
 	pub color_theme: ColorTheme,
+	pub background_color: Color,
+	pub decoration_color: Color,
 }
 
 impl Default for PlotSettings {
@@ -184,6 +186,8 @@ impl Default for PlotSettings {
 			x_label_rotation: 0.0,
 			x_label_offset: 10.0,
 			color_theme: ColorTheme::default(),
+			background_color: Color::from_rgb(0.001, 0.001, 0.001),
+			decoration_color: Color::WHITE,
 		}
 	}
 }
@@ -291,7 +295,7 @@ impl<'a> Program<Message> for PlotWidget<'a> {
 		frame.fill_text(Text {
 			content: self.title.clone(),
 			position: Point::new(bounds.width / 2.0, 20.0),
-			color: Color::WHITE,
+			color: self.settings.decoration_color,
 			size: iced::Pixels(28.0),
 			align_x: alignment::Horizontal::Center.into(),
 			align_y: alignment::Vertical::Top,
@@ -306,7 +310,7 @@ impl<'a> Program<Message> for PlotWidget<'a> {
 					plot_area.x + plot_area.width / 2.0,
 					plot_area.y + plot_area.height + 45.0,
 				),
-				color: Color::WHITE,
+				color: self.settings.decoration_color,
 				size: iced::Pixels(20.0),
 				align_x: alignment::Horizontal::Center.into(),
 				align_y: alignment::Vertical::Top,
@@ -323,7 +327,7 @@ impl<'a> Program<Message> for PlotWidget<'a> {
 				frame.fill_text(Text {
 					content: y_label,
 					position: Point::ORIGIN,
-					color: Color::WHITE,
+					color: self.settings.decoration_color,
 					size: iced::Pixels(20.0),
 					align_x: alignment::Horizontal::Center.into(),
 					align_y: alignment::Vertical::Bottom,
@@ -386,17 +390,20 @@ impl<'a> PlotWidget<'a> {
 		};
 
 		let grid_stroke = Stroke {
-			style: Style::Solid(Color::from_rgba(0.5, 0.5, 0.5, 0.2)),
+			style: Style::Solid(Color {
+				a: 0.2,
+				..self.settings.decoration_color
+			}),
 			width: 1.0,
 			..Default::default()
 		};
 		let halo_stroke = Stroke {
-			style: Style::Solid(Color::BLACK),
+			style: Style::Solid(self.settings.background_color),
 			width: 4.0,
 			..Default::default()
 		};
 		let axis_stroke = Stroke {
-			style: Style::Solid(Color::WHITE),
+			style: Style::Solid(self.settings.decoration_color),
 			width: 2.0,
 			..Default::default()
 		};
@@ -442,7 +449,7 @@ impl<'a> PlotWidget<'a> {
 			frame.fill_text(Text {
 				content: format_label(data_y, y_axis_type),
 				position: Point::new(p_left.x - 10.0, p_left.y),
-				color: Color::WHITE,
+				color: self.settings.decoration_color,
 				size: iced::Pixels(18.0),
 				align_x: alignment::Horizontal::Right.into(),
 				align_y: alignment::Vertical::Center,
@@ -467,7 +474,7 @@ impl<'a> PlotWidget<'a> {
 				frame.fill_text(Text {
 					content: format_label(data_x, x_axis_type),
 					position: Point::ORIGIN,
-					color: Color::WHITE,
+					color: self.settings.decoration_color,
 					size: iced::Pixels(18.0),
 					align_x: alignment::Horizontal::Center.into(),
 					..Default::default()
@@ -485,12 +492,12 @@ impl<'a> PlotWidget<'a> {
 		y_range: (f64, f64),
 	) {
 		let halo_stroke = Stroke {
-			style: Style::Solid(Color::BLACK),
+			style: Style::Solid(self.settings.background_color),
 			width: 4.0,
 			..Default::default()
 		};
 		let axis_stroke = Stroke {
-			style: Style::Solid(Color::WHITE),
+			style: Style::Solid(self.settings.decoration_color),
 			width: 2.0,
 			..Default::default()
 		};
@@ -522,7 +529,7 @@ impl<'a> PlotWidget<'a> {
 			frame.fill_text(Text {
 				content: format_label(data_y, AxisType::Linear),
 				position: Point::new(p_left.x - 10.0, p_left.y),
-				color: Color::WHITE,
+				color: self.settings.decoration_color,
 				size: iced::Pixels(18.0),
 				align_x: alignment::Horizontal::Right.into(),
 				align_y: alignment::Vertical::Center,
@@ -545,7 +552,7 @@ impl<'a> PlotWidget<'a> {
 				frame.fill_text(Text {
 					content: cat.clone(),
 					position: Point::ORIGIN,
-					color: Color::WHITE,
+					color: self.settings.decoration_color,
 					size: iced::Pixels(18.0),
 					align_x: alignment::Horizontal::Center.into(),
 					..Default::default()
@@ -563,12 +570,12 @@ impl<'a> PlotWidget<'a> {
 		x_range: (f64, f64),
 	) {
 		let halo_stroke = Stroke {
-			style: Style::Solid(Color::BLACK),
+			style: Style::Solid(self.settings.background_color),
 			width: 4.0,
 			..Default::default()
 		};
 		let axis_stroke = Stroke {
-			style: Style::Solid(Color::WHITE),
+			style: Style::Solid(self.settings.decoration_color),
 			width: 2.0,
 			..Default::default()
 		};
@@ -600,7 +607,7 @@ impl<'a> PlotWidget<'a> {
 			frame.fill_text(Text {
 				content: format_label(data_x, AxisType::Linear),
 				position: Point::new(p_bottom.x, p_bottom.y + 10.0),
-				color: Color::WHITE,
+				color: self.settings.decoration_color,
 				size: iced::Pixels(18.0),
 				align_x: alignment::Horizontal::Center.into(),
 				..Default::default()
@@ -616,7 +623,7 @@ impl<'a> PlotWidget<'a> {
 			frame.fill_text(Text {
 				content: cat.clone(),
 				position: Point::new(center_px.x - 10.0, center_px.y),
-				color: Color::WHITE,
+				color: self.settings.decoration_color,
 				size: iced::Pixels(18.0),
 				align_x: alignment::Horizontal::Right.into(),
 				align_y: alignment::Vertical::Center,
@@ -634,12 +641,12 @@ impl<'a> PlotWidget<'a> {
 		y_categories: &[String],
 	) {
 		let halo_stroke = Stroke {
-			style: Style::Solid(Color::BLACK),
+			style: Style::Solid(self.settings.background_color),
 			width: 4.0,
 			..Default::default()
 		};
 		let axis_stroke = Stroke {
-			style: Style::Solid(Color::WHITE),
+			style: Style::Solid(self.settings.decoration_color),
 			width: 2.0,
 			..Default::default()
 		};
@@ -675,7 +682,7 @@ impl<'a> PlotWidget<'a> {
 				frame.fill_text(Text {
 					content: cat.clone(),
 					position: Point::ORIGIN,
-					color: Color::WHITE,
+					color: self.settings.decoration_color,
 					size: iced::Pixels(18.0),
 					align_x: alignment::Horizontal::Center.into(),
 					..Default::default()
@@ -694,7 +701,7 @@ impl<'a> PlotWidget<'a> {
 			frame.fill_text(Text {
 				content: cat.clone(),
 				position: Point::new(tick_x - 10.0, tick_y),
-				color: Color::WHITE,
+				color: self.settings.decoration_color,
 				size: iced::Pixels(18.0),
 				align_x: alignment::Horizontal::Right.into(),
 				align_y: alignment::Vertical::Center,
@@ -712,17 +719,20 @@ impl<'a> PlotWidget<'a> {
 		ranges: &[(f64, f64)],
 	) {
 		let halo_stroke = Stroke {
-			style: Style::Solid(Color::BLACK),
+			style: Style::Solid(self.settings.background_color),
 			width: 10.0,
 			..Default::default()
 		};
 		let axis_stroke = Stroke {
-			style: Style::Solid(Color::WHITE),
+			style: Style::Solid(self.settings.decoration_color),
 			width: 4.0,
 			..Default::default()
 		};
 		let tick_stroke = Stroke {
-			style: Style::Solid(Color::from_rgba(1.0, 1.0, 1.0, 0.6)),
+			style: Style::Solid(Color {
+				a: 0.6,
+				..self.settings.decoration_color
+			}),
 			width: 1.5,
 			..Default::default()
 		};
@@ -749,7 +759,7 @@ impl<'a> PlotWidget<'a> {
 				frame.fill_text(Text {
 					content: format_label(data_y, AxisType::Linear),
 					position: Point::new(p.x - 14.0, p.y),
-					color: Color::WHITE,
+					color: self.settings.decoration_color,
 					size: iced::Pixels(18.0),
 					align_x: alignment::Horizontal::Right.into(),
 					align_y: alignment::Vertical::Center,
@@ -759,7 +769,7 @@ impl<'a> PlotWidget<'a> {
 			frame.fill_text(Text {
 				content: dim.clone(),
 				position: Point::new(top_px.x, top_px.y - 20.0),
-				color: Color::WHITE,
+				color: self.settings.decoration_color,
 				size: iced::Pixels(22.0),
 				align_x: alignment::Horizontal::Center.into(),
 				align_y: alignment::Vertical::Bottom,

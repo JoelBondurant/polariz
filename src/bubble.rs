@@ -88,7 +88,7 @@ impl PlotKernel for BubblePlotKernel {
 		frame.fill_rectangle(
 			Point::new(x, y),
 			iced::Size::new(legend_width, legend_height),
-			Color::from_rgba(0.0, 0.0, 0.0, 0.7),
+			Color { a: 0.7, ..settings.background_color },
 		);
 		let bar_width = 15.0;
 		let bar_height = legend_height - 80.0;
@@ -110,7 +110,7 @@ impl PlotKernel for BubblePlotKernel {
 		frame.fill_text(Text {
 			content: format!("{:.1}", color_max),
 			position: Point::new(color_label_x, bar_y),
-			color: Color::WHITE,
+			color: settings.decoration_color,
 			size: Pixels(14.0),
 			align_y: iced::alignment::Vertical::Top,
 			..Default::default()
@@ -118,7 +118,7 @@ impl PlotKernel for BubblePlotKernel {
 		frame.fill_text(Text {
 			content: format!("{:.1}", color_min),
 			position: Point::new(color_label_x, bar_y + bar_height),
-			color: Color::WHITE,
+			color: settings.decoration_color,
 			size: Pixels(14.0),
 			align_y: iced::alignment::Vertical::Bottom,
 			..Default::default()
@@ -126,7 +126,7 @@ impl PlotKernel for BubblePlotKernel {
 		frame.fill_text(Text {
 			content: self.prepared_data.color_label.clone(),
 			position: Point::new(color_bar_x + bar_width / 2.0, y + 15.0),
-			color: Color::WHITE,
+			color: settings.decoration_color,
 			size: Pixels(16.0),
 			align_x: iced::alignment::Horizontal::Center.into(),
 			align_y: iced::alignment::Vertical::Top,
@@ -137,7 +137,7 @@ impl PlotKernel for BubblePlotKernel {
 		frame.fill_text(Text {
 			content: self.prepared_data.size_label.clone(),
 			position: Point::new(size_title_x, y + 15.0),
-			color: Color::WHITE,
+			color: settings.decoration_color,
 			size: Pixels(16.0),
 			align_x: iced::alignment::Horizontal::Center.into(),
 			align_y: iced::alignment::Vertical::Top,
@@ -154,11 +154,11 @@ impl PlotKernel for BubblePlotKernel {
 				(bar_y + bar_height - min_radius) - t * (bar_height - max_radius - min_radius);
 			let circle_center = Point::new(size_legend_x + 35.0, sample_y);
 			let circle = Path::circle(circle_center, radius);
-			frame.fill(&circle, Color::from_rgba(1.0, 1.0, 1.0, 0.5));
+			frame.fill(&circle, Color { a: 0.5, ..settings.decoration_color });
 			frame.stroke(
 				&circle,
 				Stroke {
-					style: Style::Solid(Color::WHITE),
+					style: Style::Solid(settings.decoration_color),
 					width: 1.0,
 					..Default::default()
 				},
@@ -166,7 +166,7 @@ impl PlotKernel for BubblePlotKernel {
 			frame.fill_text(Text {
 				content: format!("{:.1}", val),
 				position: Point::new(size_legend_x + 75.0, sample_y),
-				color: Color::WHITE,
+				color: settings.decoration_color,
 				size: Pixels(14.0),
 				align_y: iced::alignment::Vertical::Center,
 				..Default::default()

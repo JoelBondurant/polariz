@@ -130,7 +130,7 @@ impl PlotKernel for RadialDialPlotKernel {
 		frame.fill_rectangle(
 			iced::Point::new(x, y),
 			iced::Size::new(legend_width, legend_height),
-			Color::from_rgba(0.0, 0.0, 0.0, 0.6),
+			Color { a: 0.6, ..settings.background_color },
 		);
 		for (i, name) in self.prepared_data.categories.iter().enumerate() {
 			let t = if num_cats > 1 {
@@ -151,7 +151,7 @@ impl PlotKernel for RadialDialPlotKernel {
 			frame.fill_text(iced::widget::canvas::Text {
 				content: name.clone(),
 				position: iced::Point::new(item_x + rect_size + 10.0, item_y + item_height / 2.0),
-				color: Color::WHITE,
+				color: settings.decoration_color,
 				size: iced::Pixels(14.0),
 				align_x: iced::alignment::Horizontal::Left.into(),
 				align_y: iced::alignment::Vertical::Center,

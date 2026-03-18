@@ -2,7 +2,7 @@ use crate::bar::{self, BarPlotKernel};
 use crate::box_plot::{self, BoxPlotKernel};
 use crate::bubble::{self, BubblePlotKernel};
 use crate::candlestick::{self, CandlestickPlotKernel};
-use crate::colors::ColorTheme;
+use crate::colors::{self, ColorTheme};
 use crate::fill_between::{self, FillBetweenPlotKernel};
 use crate::funnel::{self, FunnelPlotKernel};
 use crate::heatmap::{self, HeatmapPlotKernel};
@@ -39,6 +39,8 @@ struct AppState {
 	legend_y_input: String,
 	x_rotation_input: String,
 	x_offset_input: String,
+	bg_color_input: String,
+	decoration_color_input: String,
 }
 
 pub type Result = iced::Result;
@@ -62,6 +64,8 @@ fn new() -> (AppState, Task<Message>) {
 		hovered_info: None,
 		current_plot_type: plot_type,
 		current_size: (WIDTH, HEIGHT),
+		bg_color_input: colors::color_to_hex(plot_settings.background_color),
+		decoration_color_input: colors::color_to_hex(plot_settings.decoration_color),
 		plot_settings,
 		max_legend_rows_input: plot_settings.max_legend_rows.to_string(),
 		legend_x_input: plot_settings.legend_x.to_string(),
@@ -282,6 +286,34 @@ fn update(state: &mut AppState, message: Message) -> Task<Message> {
 			state.plot_settings.color_theme = theme;
 			Task::none()
 		}
+		Message::ChangeBackgroundColor(color) => {
+			state.plot_settings.background_color = color;
+			state.bg_color_input = colors::color_to_hex(color);
+			state.plot_settings.decoration_color = colors::contrast_color(color);
+			state.decoration_color_input = colors::color_to_hex(state.plot_settings.decoration_color);
+			Task::none()
+		}
+		Message::ChangeBackgroundHex(hex) => {
+			state.bg_color_input = hex.clone();
+			if let Some(color) = colors::hex_to_color(&hex) {
+				state.plot_settings.background_color = color;
+				state.plot_settings.decoration_color = colors::contrast_color(color);
+				state.decoration_color_input = colors::color_to_hex(state.plot_settings.decoration_color);
+			}
+			Task::none()
+		}
+		Message::ChangeDecorationColor(color) => {
+			state.plot_settings.decoration_color = color;
+			state.decoration_color_input = colors::color_to_hex(color);
+			Task::none()
+		}
+		Message::ChangeDecorationHex(hex) => {
+			state.decoration_color_input = hex.clone();
+			if let Some(color) = colors::hex_to_color(&hex) {
+				state.plot_settings.decoration_color = color;
+			}
+			Task::none()
+		}
 	}
 }
 
@@ -300,14 +332,19 @@ fn view(state: &AppState) -> Element<'_, Message> {
 			container(text(info))
 				.padding(5)
 				.style(|_| container::Style {
-					background: Some(iced::Background::Color(iced::Color::from_rgba(
-						0.001, 0.001, 0.001, 0.85,
-					))),
+					background: Some(iced::Background::Color(iced::Color {
+						a: 0.85,
+						..state.plot_settings.background_color
+					})),
 					border: iced::Border {
-						color: iced::Color::from_rgba(1.0, 1.0, 1.0, 0.2),
+						color: iced::Color {
+							a: 0.2,
+							..state.plot_settings.decoration_color
+						},
 						width: 1.0,
 						radius: 2.0.into(),
 					},
+					text_color: Some(state.plot_settings.decoration_color),
 					..Default::default()
 				}),
 			tooltip::Position::FollowCursor,
@@ -329,6 +366,14 @@ fn view(state: &AppState) -> Element<'_, Message> {
 			Some(state.plot_settings.color_theme),
 			Message::ChangeColorTheme
 		),
+		text("BG:"),
+		text_input("", &state.bg_color_input)
+			.on_input(Message::ChangeBackgroundHex)
+			.width(80),
+		text("Decor:"),
+		text_input("", &state.decoration_color_input)
+			.on_input(Message::ChangeDecorationHex)
+			.width(80),
 		text("Legend Rows:"),
 		text_input("", &state.max_legend_rows_input)
 			.on_input(|s| {
@@ -385,16 +430,22 @@ fn view(state: &AppState) -> Element<'_, Message> {
 	.spacing(10)
 	.padding(5)
 	.align_y(iced::Alignment::Center);
+
+	let container_style = {
+		let bg = state.plot_settings.background_color;
+		let decor = state.plot_settings.decoration_color;
+		move |_theme: &iced::Theme| container::Style {
+			background: Some(iced::Background::Color(bg)),
+			text_color: Some(decor),
+			..Default::default()
+		}
+	};
+
 	container(
 		column![controls, plot_content]
 			.width(Length::Fill)
 			.height(Length::Fill),
 	)
-	.style(|_| container::Style {
-		background: Some(iced::Background::Color(iced::Color::from_rgba(
-			0.001, 0.001, 0.001, 0.8,
-		))),
-		..Default::default()
-	})
+	.style(container_style)
 	.into()
 }
