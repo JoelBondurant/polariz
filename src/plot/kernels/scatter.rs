@@ -80,7 +80,7 @@ impl PlotKernel for ScatterPlotKernel {
 				content: series.name.clone(),
 				position: iced::Point::new(item_x + swatch_size + 10.0, item_y + item_height / 2.0),
 				color: settings.decoration_color,
-				size: iced::Pixels(14.0),
+				size: iced::Pixels(settings.legend_size),
 				align_x: iced::alignment::Horizontal::Left.into(),
 				align_y: iced::alignment::Vertical::Center,
 				..Default::default()

@@ -4,6 +4,7 @@ use iced::advanced::mouse::Cursor;
 use iced::alignment;
 use iced::widget::canvas::{self, Frame, Geometry, Path, Program, Stroke, Style, Text};
 use iced::{Color, Event, Point, Rectangle, Renderer, Theme};
+use std::sync::Arc;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Orientation {
@@ -171,7 +172,7 @@ impl<'a> CoordinateTransformer<'a> {
 	}
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct PlotSettings {
 	pub max_legend_rows: u32,
 	pub legend_x: f32,
@@ -185,12 +186,33 @@ pub struct PlotSettings {
 	pub x_max: Option<f64>,
 	pub y_min: Option<f64>,
 	pub y_max: Option<f64>,
+	pub title: Option<Arc<String>>,
+	pub subtitle: Option<Arc<String>>,
+	pub x_label: Option<Arc<String>>,
+	pub y_label: Option<Arc<String>>,
+	pub title_offset: f32,
+	pub subtitle_offset: f32,
+	pub x_label_padding: f32,
+	pub y_label_padding: f32,
+	pub plot_padding_top: f32,
+	pub plot_padding_bottom: f32,
+	pub plot_padding_left: f32,
+	pub plot_padding_right: f32,
+	pub title_size: f32,
+	pub subtitle_size: f32,
+	pub x_label_size: f32,
+	pub y_label_size: f32,
+	pub x_tick_size: f32,
+	pub y_tick_size: f32,
+	pub legend_size: f32,
+	pub x_ticks: u32,
+	pub y_ticks: u32,
 }
 
 impl Default for PlotSettings {
 	fn default() -> Self {
 		Self {
-			max_legend_rows: 4,
+			max_legend_rows: 10,
 			legend_x: 0.95,
 			legend_y: 0.05,
 			x_label_rotation: 0.0,
@@ -202,6 +224,27 @@ impl Default for PlotSettings {
 			x_max: None,
 			y_min: None,
 			y_max: None,
+			title: None,
+			subtitle: None,
+			x_label: None,
+			y_label: None,
+			title_offset: 20.0,
+			subtitle_offset: 50.0,
+			x_label_padding: 45.0,
+			y_label_padding: 85.0,
+			plot_padding_top: 50.0,
+			plot_padding_bottom: 80.0,
+			plot_padding_left: 100.0,
+			plot_padding_right: 20.0,
+			title_size: 28.0,
+			subtitle_size: 20.0,
+			x_label_size: 20.0,
+			y_label_size: 20.0,
+			x_tick_size: 18.0,
+			y_tick_size: 18.0,
+			legend_size: 14.0,
+			x_ticks: 8,
+			y_ticks: 8,
 		}
 	}
 }
@@ -250,17 +293,17 @@ impl<'a> Program<Message> for PlotWidget<'a> {
 		cursor: Cursor,
 	) -> Vec<Geometry> {
 		let mut frame = Frame::new(renderer, bounds.size());
-		let padding_top = self.padding + 50.0;
-		let padding_bottom = self.padding + 80.0;
-		let padding_left = self.padding + 100.0;
-		let padding_right = self.padding + 20.0;
+		let padding_top = self.padding + self.settings.plot_padding_top;
+		let padding_bottom = self.padding + self.settings.plot_padding_bottom;
+		let padding_left = self.padding + self.settings.plot_padding_left;
+		let padding_right = self.padding + self.settings.plot_padding_right;
 		let plot_area = Rectangle {
 			x: padding_left,
 			y: padding_top,
 			width: bounds.width - padding_left - padding_right,
 			height: bounds.height - padding_top - padding_bottom,
 		};
-		let layout = self.kernel.layout(self.settings);
+		let layout = self.kernel.layout(self.settings.clone());
 		let transform = CoordinateTransformer::new(&layout, plot_area);
 		let relative_cursor = match cursor.position() {
 			Some(pos) => Cursor::Available(Point::new(pos.x - bounds.x, pos.y - bounds.y)),
@@ -271,7 +314,7 @@ impl<'a> Program<Message> for PlotWidget<'a> {
 			plot_area,
 			&transform,
 			relative_cursor,
-			self.settings,
+			self.settings.clone(),
 		);
 		match &layout {
 			PlotLayout::Cartesian {
@@ -310,27 +353,39 @@ impl<'a> Program<Message> for PlotWidget<'a> {
 			}
 			PlotLayout::Radial => {}
 		}
-		self.kernel.draw_legend(&mut frame, bounds, self.settings);
+		self.kernel.draw_legend(&mut frame, bounds, self.settings.clone());
+		let title = self.settings.title.as_ref().map(|s: &Arc<String>| s.to_string()).unwrap_or(self.title.clone());
 		frame.fill_text(Text {
-			content: self.title.clone(),
-			position: Point::new(bounds.width / 2.0, 20.0),
+			content: title,
+			position: Point::new(bounds.width / 2.0, self.settings.title_offset),
 			color: self.settings.decoration_color,
-			size: iced::Pixels(28.0),
+			size: iced::Pixels(self.settings.title_size),
 			align_x: alignment::Horizontal::Center.into(),
 			align_y: alignment::Vertical::Top,
 			..Default::default()
 		});
-		let x_label = self.kernel.x_label();
-		let y_label = self.kernel.y_label();
+		if let Some(subtitle) = &self.settings.subtitle {
+			frame.fill_text(Text {
+				content: subtitle.as_ref().to_string(),
+				position: Point::new(bounds.width / 2.0, self.settings.subtitle_offset),
+				color: self.settings.decoration_color,
+				size: iced::Pixels(self.settings.subtitle_size),
+				align_x: alignment::Horizontal::Center.into(),
+				align_y: alignment::Vertical::Top,
+				..Default::default()
+			});
+		}
+		let x_label = self.settings.x_label.as_ref().map(|s: &Arc<String>| s.to_string()).unwrap_or(self.kernel.x_label());
+		let y_label = self.settings.y_label.as_ref().map(|s: &Arc<String>| s.to_string()).unwrap_or(self.kernel.y_label());
 		if !x_label.is_empty() {
 			frame.fill_text(Text {
 				content: x_label,
 				position: Point::new(
 					plot_area.x + plot_area.width / 2.0,
-					plot_area.y + plot_area.height + 45.0,
+					plot_area.y + plot_area.height + self.settings.x_label_padding,
 				),
 				color: self.settings.decoration_color,
-				size: iced::Pixels(20.0),
+				size: iced::Pixels(self.settings.x_label_size),
 				align_x: alignment::Horizontal::Center.into(),
 				align_y: alignment::Vertical::Top,
 				..Default::default()
@@ -339,7 +394,7 @@ impl<'a> Program<Message> for PlotWidget<'a> {
 		if !y_label.is_empty() {
 			frame.with_save(|frame| {
 				frame.translate(iced::Vector::new(
-					plot_area.x - 85.0,
+					plot_area.x - self.settings.y_label_padding,
 					plot_area.y + plot_area.height / 2.0,
 				));
 				frame.rotate(-std::f32::consts::FRAC_PI_2);
@@ -347,7 +402,7 @@ impl<'a> Program<Message> for PlotWidget<'a> {
 					content: y_label,
 					position: Point::ORIGIN,
 					color: self.settings.decoration_color,
-					size: iced::Pixels(20.0),
+					size: iced::Pixels(self.settings.y_label_size),
 					align_x: alignment::Horizontal::Center.into(),
 					align_y: alignment::Vertical::Bottom,
 					..Default::default()
@@ -376,7 +431,7 @@ impl<'a> Program<Message> for PlotWidget<'a> {
 					width: bounds.width - padding_left - padding_right,
 					height: bounds.height - padding_top - padding_bottom,
 				};
-				let layout = self.kernel.layout(self.settings);
+				let layout = self.kernel.layout(self.settings.clone());
 				let transform = CoordinateTransformer::new(&layout, plot_area);
 				let relative_cursor = match cursor.position() {
 					Some(pos) => Cursor::Available(Point::new(pos.x - bounds.x, pos.y - bounds.y)),
@@ -388,12 +443,11 @@ impl<'a> Program<Message> for PlotWidget<'a> {
 			Event::Mouse(iced::mouse::Event::ButtonPressed(iced::mouse::Button::Left)) => {
 				if cursor.is_over(bounds) {
 					let now = std::time::Instant::now();
-					if let Some(last_click) = state {
-						if now.duration_since(*last_click) < std::time::Duration::from_millis(500) {
+					if let Some(last_click) = state
+						&& now.duration_since(*last_click) < std::time::Duration::from_millis(500) {
 							*state = None;
 							return Some(canvas::Action::publish(Message::ToggleSettings));
 						}
-					}
 					*state = Some(now);
 				}
 				None
@@ -441,18 +495,17 @@ impl<'a> PlotWidget<'a> {
 			width: 2.0,
 			..Default::default()
 		};
-		let num_ticks = 8;
 		let grid_path = Path::new(|builder| {
-			for i in 0..=num_ticks {
-				let t = i as f64 / num_ticks as f64;
+			for i in 0..=self.settings.y_ticks {
+				let t = i as f64 / self.settings.y_ticks as f64;
 				let data_y = y_range.0 + (y_range.1 - y_range.0) * t;
 				let p_left = transform.cartesian(x_range.0, data_y);
 				let p_right = transform.cartesian(x_range.1, data_y);
 				builder.move_to(p_left);
 				builder.line_to(p_right);
 			}
-			for i in 0..=num_ticks {
-				let t = i as f64 / num_ticks as f64;
+			for i in 0..=self.settings.x_ticks {
+				let t = i as f64 / self.settings.x_ticks as f64;
 				let data_x = x_range.0 + (x_range.1 - x_range.0) * t;
 				let p_bottom = transform.cartesian(data_x, y_range.0);
 				let p_top = transform.cartesian(data_x, y_range.1);
@@ -471,8 +524,8 @@ impl<'a> PlotWidget<'a> {
 		});
 		frame.stroke(&axes_path, halo_stroke);
 		frame.stroke(&axes_path, axis_stroke);
-		for i in 0..=num_ticks {
-			let t = i as f64 / num_ticks as f64;
+		for i in 0..=self.settings.y_ticks {
+			let t = i as f64 / self.settings.y_ticks as f64;
 			let data_y = y_range.0 + (y_range.1 - y_range.0) * t;
 			let p_left = transform.cartesian(x_range.0, data_y);
 			let tick_path = Path::new(|builder| {
@@ -484,14 +537,14 @@ impl<'a> PlotWidget<'a> {
 				content: format_label(data_y, y_axis_type),
 				position: Point::new(p_left.x - 10.0, p_left.y),
 				color: self.settings.decoration_color,
-				size: iced::Pixels(18.0),
+				size: iced::Pixels(self.settings.y_tick_size),
 				align_x: alignment::Horizontal::Right.into(),
 				align_y: alignment::Vertical::Center,
 				..Default::default()
 			});
 		}
-		for i in 0..=num_ticks {
-			let t = i as f64 / num_ticks as f64;
+		for i in 0..=self.settings.x_ticks {
+			let t = i as f64 / self.settings.x_ticks as f64;
 			let data_x = x_range.0 + (x_range.1 - x_range.0) * t;
 			let p_bottom = transform.cartesian(data_x, y_range.0);
 			let tick_path = Path::new(|builder| {
@@ -509,7 +562,7 @@ impl<'a> PlotWidget<'a> {
 					content: format_label(data_x, x_axis_type),
 					position: Point::ORIGIN,
 					color: self.settings.decoration_color,
-					size: iced::Pixels(18.0),
+					size: iced::Pixels(self.settings.x_tick_size),
 					align_x: alignment::Horizontal::Center.into(),
 					..Default::default()
 				});
@@ -535,7 +588,6 @@ impl<'a> PlotWidget<'a> {
 			width: 2.0,
 			..Default::default()
 		};
-		let num_ticks = 8;
 		let axes_path = Path::new(|builder| {
 			let (first_cat_center, band_width) = transform.categorical(0, y_range.1);
 			let left_edge = first_cat_center.x - (band_width / 2.0);
@@ -549,8 +601,8 @@ impl<'a> PlotWidget<'a> {
 		});
 		frame.stroke(&axes_path, halo_stroke);
 		frame.stroke(&axes_path, axis_stroke);
-		for i in 0..=num_ticks {
-			let t = i as f64 / num_ticks as f64;
+		for i in 0..=self.settings.y_ticks {
+			let t = i as f64 / self.settings.y_ticks as f64;
 			let data_y = y_range.0 + (y_range.1 - y_range.0) * t;
 			let (center, band_width) = transform.categorical(0, data_y);
 			let left_edge = center.x - (band_width / 2.0);
@@ -564,7 +616,7 @@ impl<'a> PlotWidget<'a> {
 				content: format_label(data_y, AxisType::Linear),
 				position: Point::new(p_left.x - 10.0, p_left.y),
 				color: self.settings.decoration_color,
-				size: iced::Pixels(18.0),
+				size: iced::Pixels(self.settings.y_tick_size),
 				align_x: alignment::Horizontal::Right.into(),
 				align_y: alignment::Vertical::Center,
 				..Default::default()
@@ -587,7 +639,7 @@ impl<'a> PlotWidget<'a> {
 					content: cat.clone(),
 					position: Point::ORIGIN,
 					color: self.settings.decoration_color,
-					size: iced::Pixels(18.0),
+					size: iced::Pixels(self.settings.x_tick_size),
 					align_x: alignment::Horizontal::Center.into(),
 					..Default::default()
 				});
@@ -613,7 +665,6 @@ impl<'a> PlotWidget<'a> {
 			width: 2.0,
 			..Default::default()
 		};
-		let num_ticks = 8;
 		let axes_path = Path::new(|builder| {
 			let (first_cat_center, band_height) = transform.categorical(0, x_range.0);
 			let bottom_edge = first_cat_center.y + (band_height / 2.0);
@@ -627,8 +678,8 @@ impl<'a> PlotWidget<'a> {
 		});
 		frame.stroke(&axes_path, halo_stroke);
 		frame.stroke(&axes_path, axis_stroke);
-		for i in 0..=num_ticks {
-			let t = i as f64 / num_ticks as f64;
+		for i in 0..=self.settings.x_ticks {
+			let t = i as f64 / self.settings.x_ticks as f64;
 			let data_x = x_range.0 + (x_range.1 - x_range.0) * t;
 			let (center, band_height) = transform.categorical(0, data_x);
 			let bottom_edge = center.y + (band_height / 2.0);
@@ -642,7 +693,7 @@ impl<'a> PlotWidget<'a> {
 				content: format_label(data_x, AxisType::Linear),
 				position: Point::new(p_bottom.x, p_bottom.y + 10.0),
 				color: self.settings.decoration_color,
-				size: iced::Pixels(18.0),
+				size: iced::Pixels(self.settings.x_tick_size),
 				align_x: alignment::Horizontal::Center.into(),
 				..Default::default()
 			});
@@ -658,7 +709,7 @@ impl<'a> PlotWidget<'a> {
 				content: cat.clone(),
 				position: Point::new(center_px.x - 10.0, center_px.y),
 				color: self.settings.decoration_color,
-				size: iced::Pixels(18.0),
+				size: iced::Pixels(self.settings.y_tick_size),
 				align_x: alignment::Horizontal::Right.into(),
 				align_y: alignment::Vertical::Center,
 				..Default::default()
@@ -717,7 +768,7 @@ impl<'a> PlotWidget<'a> {
 					content: cat.clone(),
 					position: Point::ORIGIN,
 					color: self.settings.decoration_color,
-					size: iced::Pixels(18.0),
+					size: iced::Pixels(self.settings.x_tick_size),
 					align_x: alignment::Horizontal::Center.into(),
 					..Default::default()
 				});
@@ -736,7 +787,7 @@ impl<'a> PlotWidget<'a> {
 				content: cat.clone(),
 				position: Point::new(tick_x - 10.0, tick_y),
 				color: self.settings.decoration_color,
-				size: iced::Pixels(18.0),
+				size: iced::Pixels(self.settings.y_tick_size),
 				align_x: alignment::Horizontal::Right.into(),
 				align_y: alignment::Vertical::Center,
 				..Default::default()
@@ -794,7 +845,7 @@ impl<'a> PlotWidget<'a> {
 					content: format_label(data_y, AxisType::Linear),
 					position: Point::new(p.x - 14.0, p.y),
 					color: self.settings.decoration_color,
-					size: iced::Pixels(18.0),
+					size: iced::Pixels(self.settings.y_tick_size),
 					align_x: alignment::Horizontal::Right.into(),
 					align_y: alignment::Vertical::Center,
 					..Default::default()
@@ -834,8 +885,8 @@ pub fn format_label(value: f64, axis_type: AxisType) -> String {
 		AxisType::Linear => {
 			if value.abs() >= 1e6 || (value.abs() < 1e-3 && value != 0.0) {
 				format!("{:.1e}", value)
-			} else if value.fract() == 0.0 {
-				format!("{:.0}", value)
+			} else if (value.round() - value).abs() < 1e-10 {
+				format!("{:.0}", value.round())
 			} else {
 				format!("{:.1}", value)
 			}

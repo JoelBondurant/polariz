@@ -123,7 +123,7 @@ impl PlotKernel for BubblePlotKernel {
 			content: format!("{:.1}", color_max),
 			position: Point::new(color_label_x, bar_y),
 			color: settings.decoration_color,
-			size: Pixels(14.0),
+			size: Pixels(settings.legend_size),
 			align_y: iced::alignment::Vertical::Top,
 			..Default::default()
 		});
@@ -131,7 +131,7 @@ impl PlotKernel for BubblePlotKernel {
 			content: format!("{:.1}", color_min),
 			position: Point::new(color_label_x, bar_y + bar_height),
 			color: settings.decoration_color,
-			size: Pixels(14.0),
+			size: Pixels(settings.legend_size),
 			align_y: iced::alignment::Vertical::Bottom,
 			..Default::default()
 		});
@@ -185,7 +185,7 @@ impl PlotKernel for BubblePlotKernel {
 				content: format!("{:.1}", val),
 				position: Point::new(size_legend_x + 75.0, sample_y),
 				color: settings.decoration_color,
-				size: Pixels(14.0),
+				size: Pixels(settings.legend_size),
 				align_y: iced::alignment::Vertical::Center,
 				..Default::default()
 			});

@@ -128,7 +128,7 @@ impl PlotKernel for FunnelPlotKernel {
 				content: name.clone(),
 				position: Point::new(item_x + rect_size + 10.0, item_y + item_height / 2.0),
 				color: settings.decoration_color,
-				size: Pixels(14.0),
+				size: Pixels(settings.legend_size),
 				align_x: iced::alignment::Horizontal::Left.into(),
 				align_y: iced::alignment::Vertical::Center,
 				..Default::default()

@@ -128,7 +128,7 @@ impl PlotKernel for HeatmapPlotKernel {
 			content: format!("{:.1}", max_val),
 			position: Point::new(label_x, bar_y),
 			color: settings.decoration_color,
-			size: iced::Pixels(12.0),
+			size: iced::Pixels(settings.legend_size),
 			align_y: iced::alignment::Vertical::Top,
 			..Default::default()
 		});
@@ -136,7 +136,7 @@ impl PlotKernel for HeatmapPlotKernel {
 			content: "0.0".to_string(),
 			position: Point::new(label_x, bar_y + bar_height),
 			color: settings.decoration_color,
-			size: iced::Pixels(12.0),
+			size: iced::Pixels(settings.legend_size),
 			align_y: iced::alignment::Vertical::Bottom,
 			..Default::default()
 		});

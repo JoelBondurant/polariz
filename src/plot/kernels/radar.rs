@@ -81,7 +81,7 @@ impl PlotKernel for RadarPlotKernel {
 					center.y + (max_radius + 20.0) * angle.sin(),
 				),
 				color: settings.decoration_color,
-				size: iced::Pixels(14.0),
+				size: iced::Pixels(settings.x_label_size),
 				align_x: if angle.cos().abs() < 0.1 {
 					iced::alignment::Horizontal::Center.into()
 				} else if angle.cos() > 0.0 {
@@ -184,7 +184,7 @@ impl PlotKernel for RadarPlotKernel {
 				content: name.clone(),
 				position: iced::Point::new(item_x + rect_size + 10.0, item_y + item_height / 2.0),
 				color: settings.decoration_color,
-				size: iced::Pixels(14.0),
+				size: iced::Pixels(settings.legend_size),
 				align_x: iced::alignment::Horizontal::Left.into(),
 				align_y: iced::alignment::Vertical::Center,
 				..Default::default()
