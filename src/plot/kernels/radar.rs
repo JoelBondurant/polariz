@@ -1,4 +1,6 @@
-use crate::plot::common::{CoordinateTransformer, PlotKernel, PlotLayout, PlotSettings};
+use crate::plot::common::{
+	format_label, AxisType, CoordinateTransformer, PlotKernel, PlotLayout, PlotSettings,
+};
 use iced::advanced::mouse::Cursor;
 use iced::widget::canvas::{Frame, Path, Stroke, Style};
 use iced::{Color, Point, Rectangle};
@@ -31,13 +33,13 @@ impl PlotKernel for RadarPlotKernel {
 			bounds.x + bounds.width / 2.0,
 			bounds.y + bounds.height / 2.0,
 		);
-		let max_radius = bounds.width.min(bounds.height) / 2.0;
+		let max_radius = (bounds.width.min(bounds.height) / 2.0 - 80.0).max(10.0);
 		let grid_stroke = Stroke {
 			style: Style::Solid(Color::from_rgba(0.5, 0.5, 0.5, 0.2)),
 			width: 1.0,
 			..Default::default()
 		};
-		let num_circles = 5;
+		let num_circles = settings.x_ticks;
 		for i in 1..=num_circles {
 			let radius = max_radius * (i as f32 / num_circles as f32);
 			let path = Path::new(|builder| {
@@ -77,19 +79,19 @@ impl PlotKernel for RadarPlotKernel {
 			frame.fill_text(iced::widget::canvas::Text {
 				content: self.prepared_data.dimensions[i].clone(),
 				position: Point::new(
-					center.x + (max_radius + 20.0) * angle.cos(),
-					center.y + (max_radius + 20.0) * angle.sin(),
+					center.x + (max_radius + 15.0) * angle.cos(),
+					center.y + (max_radius + 15.0) * angle.sin(),
 				),
 				color: settings.decoration_color,
 				size: iced::Pixels(settings.x_label_size),
-				align_x: if angle.cos().abs() < 0.1 {
+				align_x: if angle.cos().abs() < 0.01 {
 					iced::alignment::Horizontal::Center.into()
 				} else if angle.cos() > 0.0 {
 					iced::alignment::Horizontal::Left.into()
 				} else {
 					iced::alignment::Horizontal::Right.into()
 				},
-				align_y: if angle.sin().abs() < 0.1 {
+				align_y: if angle.sin().abs() < 0.01 {
 					iced::alignment::Vertical::Center
 				} else if angle.sin() > 0.0 {
 					iced::alignment::Vertical::Top
@@ -98,6 +100,29 @@ impl PlotKernel for RadarPlotKernel {
 				},
 				..Default::default()
 			});
+			if num_circles > 0 {
+				let range = self.prepared_data.ranges[i];
+				for c in 1..=num_circles {
+					let radius = max_radius * (c as f32 / num_circles as f32);
+					let val = range.0 + (range.1 - range.0) * (c as f64 / num_circles as f64);
+					let label_pos = Point::new(
+						center.x + radius * angle.cos() + 10.0,
+						center.y + radius * angle.sin() + 2.0,
+					);
+					frame.fill_text(iced::widget::canvas::Text {
+						content: format_label(val, AxisType::Linear),
+						position: label_pos,
+						color: Color {
+							a: 0.7,
+							..settings.decoration_color
+						},
+						size: iced::Pixels(settings.x_tick_size),
+						align_x: iced::alignment::Horizontal::Left.into(),
+						align_y: iced::alignment::Vertical::Center,
+						..Default::default()
+					});
+				}
+			}
 		}
 		for (i, row_data) in self.prepared_data.data_matrix.iter().enumerate() {
 			let cat_idx = self.prepared_data.row_categories[i];

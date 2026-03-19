@@ -1,6 +1,6 @@
 use crate::message::Message;
 use crate::plot::colors::{self, ColorTheme};
-use crate::plot::common::{Orientation, PlotKernel, PlotSettings, PlotWidget};
+use crate::plot::common::{GridLineStyle, Orientation, PlotKernel, PlotSettings, PlotWidget};
 use crate::plot::core::PlotType;
 use crate::plot::kernels::bar::{self, BarPlotKernel};
 use crate::plot::kernels::boxplot::{self, BoxPlotKernel};
@@ -21,8 +21,8 @@ use crate::plot::kernels::stacked_area::{self, StackedAreaPlotKernel};
 use crate::plot::kernels::stacked_bar::{self, StackedBarPlotKernel};
 use crate::plot::kernels::violin::{self, ViolinPlotKernel};
 use iced::widget::{
-	button, canvas, column, container, opaque, pick_list, row, scrollable, space, stack, text,
-	text_input, tooltip, Tooltip,
+	button, canvas, checkbox, column, container, opaque, pick_list, row, scrollable, space, stack,
+	text, text_input, tooltip, Tooltip,
 };
 use iced::{window, Alignment, Element, Length, Size, Task};
 use std::sync::Arc;
@@ -69,6 +69,12 @@ struct AppState {
 	legend_size_input: String,
 	x_ticks_input: String,
 	y_ticks_input: String,
+	x_minor_ticks_input: String,
+	y_minor_ticks_input: String,
+	x_major_grid_width_input: String,
+	y_major_grid_width_input: String,
+	x_minor_grid_width_input: String,
+	y_minor_grid_width_input: String,
 	settings_open: bool,
 }
 
@@ -120,6 +126,12 @@ fn new() -> (AppState, Task<Message>) {
 		legend_size_input: plot_settings.legend_size.to_string(),
 		x_ticks_input: plot_settings.x_ticks.to_string(),
 		y_ticks_input: plot_settings.y_ticks.to_string(),
+		x_minor_ticks_input: plot_settings.x_minor_ticks.to_string(),
+		y_minor_ticks_input: plot_settings.y_minor_ticks.to_string(),
+		x_major_grid_width_input: plot_settings.x_major_grid_width.to_string(),
+		y_major_grid_width_input: plot_settings.y_major_grid_width.to_string(),
+		x_minor_grid_width_input: plot_settings.x_minor_grid_width.to_string(),
+		y_minor_grid_width_input: plot_settings.y_minor_grid_width.to_string(),
 		plot_settings: plot_settings.clone(),
 		max_legend_rows_input: plot_settings.max_legend_rows.to_string(),
 		legend_x_input: plot_settings.legend_x.to_string(),
@@ -496,6 +508,76 @@ fn update(state: &mut AppState, message: Message) -> Task<Message> {
 			state.y_ticks_input = val.to_string();
 			Task::none()
 		}
+		Message::SetXMinorTicks(val) => {
+			state.plot_settings.x_minor_ticks = val;
+			state.x_minor_ticks_input = val.to_string();
+			Task::none()
+		}
+		Message::SetYMinorTicks(val) => {
+			state.plot_settings.y_minor_ticks = val;
+			state.y_minor_ticks_input = val.to_string();
+			Task::none()
+		}
+		Message::ToggleXMinorTicks(val) => {
+			state.plot_settings.show_x_minor_ticks = val;
+			Task::none()
+		}
+		Message::ToggleYMinorTicks(val) => {
+			state.plot_settings.show_y_minor_ticks = val;
+			Task::none()
+		}
+		Message::ToggleXMajorGrid(val) => {
+			state.plot_settings.show_x_major_grid = val;
+			Task::none()
+		}
+		Message::ToggleYMajorGrid(val) => {
+			state.plot_settings.show_y_major_grid = val;
+			Task::none()
+		}
+		Message::ToggleXMinorGrid(val) => {
+			state.plot_settings.show_x_minor_grid = val;
+			Task::none()
+		}
+		Message::ToggleYMinorGrid(val) => {
+			state.plot_settings.show_y_minor_grid = val;
+			Task::none()
+		}
+		Message::SetXMajorGridWidth(val) => {
+			state.plot_settings.x_major_grid_width = val;
+			state.x_major_grid_width_input = val.to_string();
+			Task::none()
+		}
+		Message::SetYMajorGridWidth(val) => {
+			state.plot_settings.y_major_grid_width = val;
+			state.y_major_grid_width_input = val.to_string();
+			Task::none()
+		}
+		Message::SetXMinorGridWidth(val) => {
+			state.plot_settings.x_minor_grid_width = val;
+			state.x_minor_grid_width_input = val.to_string();
+			Task::none()
+		}
+		Message::SetYMinorGridWidth(val) => {
+			state.plot_settings.y_minor_grid_width = val;
+			state.y_minor_grid_width_input = val.to_string();
+			Task::none()
+		}
+		Message::SetXMajorGridStyle(val) => {
+			state.plot_settings.x_major_grid_style = val;
+			Task::none()
+		}
+		Message::SetYMajorGridStyle(val) => {
+			state.plot_settings.y_major_grid_style = val;
+			Task::none()
+		}
+		Message::SetXMinorGridStyle(val) => {
+			state.plot_settings.x_minor_grid_style = val;
+			Task::none()
+		}
+		Message::SetYMinorGridStyle(val) => {
+			state.plot_settings.y_minor_grid_style = val;
+			Task::none()
+		}
 		Message::ToggleSettings => {
 			state.settings_open = !state.settings_open;
 			Task::none()
@@ -642,10 +724,10 @@ fn view(state: &AppState) -> Element<'_, Message> {
 							]
 						),
 						section(
-							"Axis Labels",
+							"X Axis",
 							column![
 								field(
-									"X Label",
+									"Label",
 									text_input("auto", &state.x_label_input).on_input(|s| {
 										if s.is_empty() {
 											Message::SetXLabel(None)
@@ -655,7 +737,7 @@ fn view(state: &AppState) -> Element<'_, Message> {
 									})
 								),
 								field(
-									"X Label Size",
+									"Label Size",
 									text_input("", &state.x_label_size_input).on_input(|s| {
 										if let Ok(val) = s.parse::<f32>() {
 											Message::SetXLabelSize(val)
@@ -664,19 +746,29 @@ fn view(state: &AppState) -> Element<'_, Message> {
 										}
 									})
 								),
-								field("X Padding", text_input("", &state.x_label_padding_input)
-									.on_input(|s| {
-										if let Ok(val) = s.parse::<f32>() { Message::SetXLabelPadding(val) }
-										else { Message::UpdateHover(state.hovered_info.clone()) }
-									})),
-								field("X Ticks", text_input("", &state.x_ticks_input)
-									.on_input(|s| {
-										if let Ok(val) = s.parse::<u32>() { Message::SetXTicks(val) }
-										else { Message::UpdateHover(state.hovered_info.clone()) }
-									})),
-
 								field(
-									"X Tick Size",
+									"Label Padding",
+									text_input("", &state.x_label_padding_input).on_input(|s| {
+										if let Ok(val) = s.parse::<f32>() {
+											Message::SetXLabelPadding(val)
+										} else {
+											Message::UpdateHover(state.hovered_info.clone())
+										}
+									})
+								),
+								horizontal_rule(),
+								field(
+									"Major Ticks",
+									text_input("", &state.x_ticks_input).on_input(|s| {
+										if let Ok(val) = s.parse::<u32>() {
+											Message::SetXTicks(val)
+										} else {
+											Message::UpdateHover(state.hovered_info.clone())
+										}
+									})
+								),
+								field(
+									"Tick Size",
 									text_input("", &state.x_tick_size_input).on_input(|s| {
 										if let Ok(val) = s.parse::<f32>() {
 											Message::SetXTickSize(val)
@@ -685,9 +777,71 @@ fn view(state: &AppState) -> Element<'_, Message> {
 										}
 									})
 								),
-								horizontal_rule(),
+								checkbox(state.plot_settings.show_x_minor_ticks)
+									.label("Show Minor Ticks")
+									.on_toggle(Message::ToggleXMinorTicks),
 								field(
-									"Y Label",
+									"Minor Ticks",
+									text_input("", &state.x_minor_ticks_input).on_input(|s| {
+										if let Ok(val) = s.parse::<u32>() {
+											Message::SetXMinorTicks(val)
+										} else {
+											Message::UpdateHover(state.hovered_info.clone())
+										}
+									})
+								),
+								horizontal_rule(),
+								checkbox(state.plot_settings.show_x_major_grid)
+									.label("Show Major Grid")
+									.on_toggle(Message::ToggleXMajorGrid),
+								field(
+									"Grid Width",
+									text_input("", &state.x_major_grid_width_input).on_input(|s| {
+										if let Ok(val) = s.parse::<f32>() {
+											Message::SetXMajorGridWidth(val)
+										} else {
+											Message::UpdateHover(state.hovered_info.clone())
+										}
+									})
+								),
+								field(
+									"Grid Style",
+									pick_list(
+										&GridLineStyle::ALL[..],
+										Some(state.plot_settings.x_major_grid_style),
+										Message::SetXMajorGridStyle
+									)
+								),
+								horizontal_rule(),
+								checkbox(state.plot_settings.show_x_minor_grid)
+									.label("Show Minor Grid")
+									.on_toggle(Message::ToggleXMinorGrid),
+								field(
+									"Minor Grid Width",
+									text_input("", &state.x_minor_grid_width_input).on_input(|s| {
+										if let Ok(val) = s.parse::<f32>() {
+											Message::SetXMinorGridWidth(val)
+										} else {
+											Message::UpdateHover(state.hovered_info.clone())
+										}
+									})
+								),
+								field(
+									"Minor Grid Style",
+									pick_list(
+										&GridLineStyle::ALL[..],
+										Some(state.plot_settings.x_minor_grid_style),
+										Message::SetXMinorGridStyle
+									)
+								),
+							]
+							.spacing(10)
+						),
+						section(
+							"Y Axis",
+							column![
+								field(
+									"Label",
 									text_input("auto", &state.y_label_input).on_input(|s| {
 										if s.is_empty() {
 											Message::SetYLabel(None)
@@ -697,7 +851,7 @@ fn view(state: &AppState) -> Element<'_, Message> {
 									})
 								),
 								field(
-									"Y Label Size",
+									"Label Size",
 									text_input("", &state.y_label_size_input).on_input(|s| {
 										if let Ok(val) = s.parse::<f32>() {
 											Message::SetYLabelSize(val)
@@ -706,19 +860,29 @@ fn view(state: &AppState) -> Element<'_, Message> {
 										}
 									})
 								),
-								field("Y Padding", text_input("", &state.y_label_padding_input)
-									.on_input(|s| {
-										if let Ok(val) = s.parse::<f32>() { Message::SetYLabelPadding(val) }
-										else { Message::UpdateHover(state.hovered_info.clone()) }
-									})),
-								field("Y Ticks", text_input("", &state.y_ticks_input)
-									.on_input(|s| {
-										if let Ok(val) = s.parse::<u32>() { Message::SetYTicks(val) }
-										else { Message::UpdateHover(state.hovered_info.clone()) }
-									})),
-
 								field(
-									"Y Tick Size",
+									"Label Padding",
+									text_input("", &state.y_label_padding_input).on_input(|s| {
+										if let Ok(val) = s.parse::<f32>() {
+											Message::SetYLabelPadding(val)
+										} else {
+											Message::UpdateHover(state.hovered_info.clone())
+										}
+									})
+								),
+								horizontal_rule(),
+								field(
+									"Major Ticks",
+									text_input("", &state.y_ticks_input).on_input(|s| {
+										if let Ok(val) = s.parse::<u32>() {
+											Message::SetYTicks(val)
+										} else {
+											Message::UpdateHover(state.hovered_info.clone())
+										}
+									})
+								),
+								field(
+									"Tick Size",
 									text_input("", &state.y_tick_size_input).on_input(|s| {
 										if let Ok(val) = s.parse::<f32>() {
 											Message::SetYTickSize(val)
@@ -727,7 +891,65 @@ fn view(state: &AppState) -> Element<'_, Message> {
 										}
 									})
 								),
+								checkbox(state.plot_settings.show_y_minor_ticks)
+									.label("Show Minor Ticks")
+									.on_toggle(Message::ToggleYMinorTicks),
+								field(
+									"Minor Ticks",
+									text_input("", &state.y_minor_ticks_input).on_input(|s| {
+										if let Ok(val) = s.parse::<u32>() {
+											Message::SetYMinorTicks(val)
+										} else {
+											Message::UpdateHover(state.hovered_info.clone())
+										}
+									})
+								),
+								horizontal_rule(),
+								checkbox(state.plot_settings.show_y_major_grid)
+									.label("Show Major Grid")
+									.on_toggle(Message::ToggleYMajorGrid),
+								field(
+									"Grid Width",
+									text_input("", &state.y_major_grid_width_input).on_input(|s| {
+										if let Ok(val) = s.parse::<f32>() {
+											Message::SetYMajorGridWidth(val)
+										} else {
+											Message::UpdateHover(state.hovered_info.clone())
+										}
+									})
+								),
+								field(
+									"Grid Style",
+									pick_list(
+										&GridLineStyle::ALL[..],
+										Some(state.plot_settings.y_major_grid_style),
+										Message::SetYMajorGridStyle
+									)
+								),
+								horizontal_rule(),
+								checkbox(state.plot_settings.show_y_minor_grid)
+									.label("Show Minor Grid")
+									.on_toggle(Message::ToggleYMinorGrid),
+								field(
+									"Minor Grid Width",
+									text_input("", &state.y_minor_grid_width_input).on_input(|s| {
+										if let Ok(val) = s.parse::<f32>() {
+											Message::SetYMinorGridWidth(val)
+										} else {
+											Message::UpdateHover(state.hovered_info.clone())
+										}
+									})
+								),
+								field(
+									"Minor Grid Style",
+									pick_list(
+										&GridLineStyle::ALL[..],
+										Some(state.plot_settings.y_minor_grid_style),
+										Message::SetYMinorGridStyle
+									)
+								),
 							]
+							.spacing(10)
 						),
 						section(
 							"Plot Padding",
@@ -943,7 +1165,6 @@ fn view(state: &AppState) -> Element<'_, Message> {
 			text_color: Some(state.plot_settings.decoration_color),
 			..Default::default()
 		});
-
 		let modal_overlay = container(opaque(
 			row![space::horizontal(), settings_panel].width(Length::Fill),
 		))

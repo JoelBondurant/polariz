@@ -1,4 +1,5 @@
 use crate::plot::colors::ColorTheme;
+use crate::plot::common::GridLineStyle;
 use crate::plot::core::PlotType;
 use iced::Color;
 
@@ -42,6 +43,22 @@ pub enum Message {
 	SetLegendSize(f32),
 	SetXTicks(u32),
 	SetYTicks(u32),
+	SetXMinorTicks(u32),
+	SetYMinorTicks(u32),
+	ToggleXMinorTicks(bool),
+	ToggleYMinorTicks(bool),
+	ToggleXMajorGrid(bool),
+	ToggleYMajorGrid(bool),
+	ToggleXMinorGrid(bool),
+	ToggleYMinorGrid(bool),
+	SetXMajorGridWidth(f32),
+	SetYMajorGridWidth(f32),
+	SetXMinorGridWidth(f32),
+	SetYMinorGridWidth(f32),
+	SetXMajorGridStyle(GridLineStyle),
+	SetYMajorGridStyle(GridLineStyle),
+	SetXMinorGridStyle(GridLineStyle),
+	SetYMinorGridStyle(GridLineStyle),
 	ToggleSettings,
 	CloseSettings,
 }

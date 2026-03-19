@@ -172,6 +172,27 @@ impl<'a> CoordinateTransformer<'a> {
 	}
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GridLineStyle {
+	Solid,
+	Dashed,
+	Dotted,
+}
+
+impl GridLineStyle {
+	pub const ALL: [GridLineStyle; 3] = [GridLineStyle::Solid, GridLineStyle::Dashed, GridLineStyle::Dotted];
+}
+
+impl std::fmt::Display for GridLineStyle {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			GridLineStyle::Solid => write!(f, "Solid"),
+			GridLineStyle::Dashed => write!(f, "Dashed"),
+			GridLineStyle::Dotted => write!(f, "Dotted"),
+		}
+	}
+}
+
 #[derive(Debug, Clone)]
 pub struct PlotSettings {
 	pub max_legend_rows: u32,
@@ -207,6 +228,22 @@ pub struct PlotSettings {
 	pub legend_size: f32,
 	pub x_ticks: u32,
 	pub y_ticks: u32,
+	pub x_minor_ticks: u32,
+	pub y_minor_ticks: u32,
+	pub show_x_minor_ticks: bool,
+	pub show_y_minor_ticks: bool,
+	pub show_x_major_grid: bool,
+	pub show_y_major_grid: bool,
+	pub show_x_minor_grid: bool,
+	pub show_y_minor_grid: bool,
+	pub x_major_grid_width: f32,
+	pub y_major_grid_width: f32,
+	pub x_minor_grid_width: f32,
+	pub y_minor_grid_width: f32,
+	pub x_major_grid_style: GridLineStyle,
+	pub y_major_grid_style: GridLineStyle,
+	pub x_minor_grid_style: GridLineStyle,
+	pub y_minor_grid_style: GridLineStyle,
 }
 
 impl Default for PlotSettings {
@@ -245,6 +282,22 @@ impl Default for PlotSettings {
 			legend_size: 14.0,
 			x_ticks: 8,
 			y_ticks: 8,
+			x_minor_ticks: 4,
+			y_minor_ticks: 4,
+			show_x_minor_ticks: true,
+			show_y_minor_ticks: true,
+			show_x_major_grid: true,
+			show_y_major_grid: true,
+			show_x_minor_grid: true,
+			show_y_minor_grid: true,
+			x_major_grid_width: 1.0,
+			y_major_grid_width: 1.0,
+			x_minor_grid_width: 0.5,
+			y_minor_grid_width: 0.5,
+			x_major_grid_style: GridLineStyle::Solid,
+			y_major_grid_style: GridLineStyle::Solid,
+			x_minor_grid_style: GridLineStyle::Solid,
+			y_minor_grid_style: GridLineStyle::Solid,
 		}
 	}
 }
@@ -309,18 +362,42 @@ impl<'a> Program<Message> for PlotWidget<'a> {
 			Some(pos) => Cursor::Available(Point::new(pos.x - bounds.x, pos.y - bounds.y)),
 			None => Cursor::Unavailable,
 		};
-		self.kernel.plot(
-			&mut frame,
-			plot_area,
-			&transform,
-			relative_cursor,
-			self.settings.clone(),
-		);
+		frame.with_clip(plot_area, |frame| {
+			self.kernel.plot(
+				frame,
+				plot_area,
+				&transform,
+				relative_cursor,
+				self.settings.clone(),
+			);
+			match &layout {
+				PlotLayout::Cartesian {
+					x_range, y_range, ..
+				} => {
+					self.draw_cartesian_grid(frame, plot_area, &transform, *x_range, *y_range);
+				}
+				PlotLayout::CategoricalX {
+					categories,
+					y_range,
+				} => {
+					self.draw_categorical_grid(frame, plot_area, &transform, categories, *y_range);
+				}
+				PlotLayout::CategoricalY {
+					categories,
+					x_range,
+				} => {
+					self.draw_categorical_y_grid(
+						frame, plot_area, &transform, categories, *x_range,
+					);
+				}
+				_ => {}
+			}
+		});
 		match &layout {
 			PlotLayout::Cartesian {
 				x_range, y_range, ..
 			} => {
-				self.draw_cartesian_grid(&mut frame, plot_area, &transform, *x_range, *y_range);
+				self.draw_cartesian_axes(&mut frame, plot_area, &transform, *x_range, *y_range);
 			}
 			PlotLayout::CategoricalX {
 				categories,
@@ -466,6 +543,77 @@ impl<'a> PlotWidget<'a> {
 		x_range: (f64, f64),
 		y_range: (f64, f64),
 	) {
+		let grid_stroke = |width: f32, style: GridLineStyle| -> Stroke {
+			let mut s = Stroke {
+				style: Style::Solid(Color {
+					a: 0.2,
+					..self.settings.decoration_color
+				}),
+				width,
+				..Default::default()
+			};
+			match style {
+				GridLineStyle::Solid => {}
+				GridLineStyle::Dashed => s.line_dash = canvas::LineDash { segments: &[10.0, 5.0], offset: 0 },
+				GridLineStyle::Dotted => s.line_dash = canvas::LineDash { segments: &[2.0, 2.0], offset: 0 },
+			}
+			s
+		};
+		let draw_line = |frame: &mut Frame, p1: Point, p2: Point, stroke: Stroke| {
+			let path = Path::new(|builder| {
+				builder.move_to(p1);
+				builder.line_to(p2);
+			});
+			frame.stroke(&path, stroke);
+		};
+		if self.settings.show_y_minor_grid && self.settings.y_minor_ticks > 0 {
+			let stroke = grid_stroke(self.settings.y_minor_grid_width, self.settings.y_minor_grid_style);
+			for i in 0..self.settings.y_ticks {
+				for j in 1..=self.settings.y_minor_ticks {
+					let t = (i as f64 + j as f64 / (self.settings.y_minor_ticks + 1) as f64) / self.settings.y_ticks as f64;
+					if t > 1.0 { continue; }
+					let data_y = y_range.0 + (y_range.1 - y_range.0) * t;
+					draw_line(frame, transform.cartesian(x_range.0, data_y), transform.cartesian(x_range.1, data_y), stroke);
+				}
+			}
+		}
+		if self.settings.show_x_minor_grid && self.settings.x_minor_ticks > 0 {
+			let stroke = grid_stroke(self.settings.x_minor_grid_width, self.settings.x_minor_grid_style);
+			for i in 0..self.settings.x_ticks {
+				for j in 1..=self.settings.x_minor_ticks {
+					let t = (i as f64 + j as f64 / (self.settings.x_minor_ticks + 1) as f64) / self.settings.x_ticks as f64;
+					if t > 1.0 { continue; }
+					let data_x = x_range.0 + (x_range.1 - x_range.0) * t;
+					draw_line(frame, transform.cartesian(data_x, y_range.0), transform.cartesian(data_x, y_range.1), stroke);
+				}
+			}
+		}
+		if self.settings.show_y_major_grid {
+			let stroke = grid_stroke(self.settings.y_major_grid_width, self.settings.y_major_grid_style);
+			for i in 0..=self.settings.y_ticks {
+				let t = i as f64 / self.settings.y_ticks as f64;
+				let data_y = y_range.0 + (y_range.1 - y_range.0) * t;
+				draw_line(frame, transform.cartesian(x_range.0, data_y), transform.cartesian(x_range.1, data_y), stroke);
+			}
+		}
+		if self.settings.show_x_major_grid {
+			let stroke = grid_stroke(self.settings.x_major_grid_width, self.settings.x_major_grid_style);
+			for i in 0..=self.settings.x_ticks {
+				let t = i as f64 / self.settings.x_ticks as f64;
+				let data_x = x_range.0 + (x_range.1 - x_range.0) * t;
+				draw_line(frame, transform.cartesian(data_x, y_range.0), transform.cartesian(data_x, y_range.1), stroke);
+			}
+		}
+	}
+
+	fn draw_cartesian_axes(
+		&self,
+		frame: &mut Frame,
+		_area: Rectangle,
+		transform: &CoordinateTransformer,
+		x_range: (f64, f64),
+		y_range: (f64, f64),
+	) {
 		let x_axis_type = if let PlotLayout::Cartesian { x_axis_type, .. } = transform.layout {
 			*x_axis_type
 		} else {
@@ -475,15 +623,6 @@ impl<'a> PlotWidget<'a> {
 			*y_axis_type
 		} else {
 			AxisType::Linear
-		};
-
-		let grid_stroke = Stroke {
-			style: Style::Solid(Color {
-				a: 0.2,
-				..self.settings.decoration_color
-			}),
-			width: 1.0,
-			..Default::default()
 		};
 		let halo_stroke = Stroke {
 			style: Style::Solid(self.settings.background_color),
@@ -495,25 +634,6 @@ impl<'a> PlotWidget<'a> {
 			width: 2.0,
 			..Default::default()
 		};
-		let grid_path = Path::new(|builder| {
-			for i in 0..=self.settings.y_ticks {
-				let t = i as f64 / self.settings.y_ticks as f64;
-				let data_y = y_range.0 + (y_range.1 - y_range.0) * t;
-				let p_left = transform.cartesian(x_range.0, data_y);
-				let p_right = transform.cartesian(x_range.1, data_y);
-				builder.move_to(p_left);
-				builder.line_to(p_right);
-			}
-			for i in 0..=self.settings.x_ticks {
-				let t = i as f64 / self.settings.x_ticks as f64;
-				let data_x = x_range.0 + (x_range.1 - x_range.0) * t;
-				let p_bottom = transform.cartesian(data_x, y_range.0);
-				let p_top = transform.cartesian(data_x, y_range.1);
-				builder.move_to(p_bottom);
-				builder.line_to(p_top);
-			}
-		});
-		frame.stroke(&grid_path, grid_stroke);
 		let axes_path = Path::new(|builder| {
 			let origin = transform.cartesian(x_range.0, y_range.0);
 			let x_max = transform.cartesian(x_range.1, y_range.0);
@@ -543,6 +663,21 @@ impl<'a> PlotWidget<'a> {
 				..Default::default()
 			});
 		}
+		if self.settings.show_y_minor_ticks && self.settings.y_minor_ticks > 0 {
+			for i in 0..self.settings.y_ticks {
+				for j in 1..=self.settings.y_minor_ticks {
+					let t = (i as f64 + j as f64 / (self.settings.y_minor_ticks + 1) as f64) / self.settings.y_ticks as f64;
+					if t > 1.0 { continue; }
+					let data_y = y_range.0 + (y_range.1 - y_range.0) * t;
+					let p_left = transform.cartesian(x_range.0, data_y);
+					let tick_path = Path::new(|builder| {
+						builder.move_to(p_left);
+						builder.line_to(Point::new(p_left.x - 3.0, p_left.y));
+					});
+					frame.stroke(&tick_path, axis_stroke);
+				}
+			}
+		}
 		for i in 0..=self.settings.x_ticks {
 			let t = i as f64 / self.settings.x_ticks as f64;
 			let data_x = x_range.0 + (x_range.1 - x_range.0) * t;
@@ -568,6 +703,81 @@ impl<'a> PlotWidget<'a> {
 				});
 			});
 		}
+		if self.settings.show_x_minor_ticks && self.settings.x_minor_ticks > 0 {
+			for i in 0..self.settings.x_ticks {
+				for j in 1..=self.settings.x_minor_ticks {
+					let t = (i as f64 + j as f64 / (self.settings.x_minor_ticks + 1) as f64) / self.settings.x_ticks as f64;
+					if t > 1.0 { continue; }
+					let data_x = x_range.0 + (x_range.1 - x_range.0) * t;
+					let p_bottom = transform.cartesian(data_x, y_range.0);
+					let tick_path = Path::new(|builder| {
+						builder.move_to(p_bottom);
+						builder.line_to(Point::new(p_bottom.x, p_bottom.y + 3.0));
+					});
+					frame.stroke(&tick_path, axis_stroke);
+				}
+			}
+		}
+	}
+
+	fn draw_categorical_grid(
+		&self,
+		frame: &mut Frame,
+		_area: Rectangle,
+		transform: &CoordinateTransformer,
+		categories: &[String],
+		y_range: (f64, f64),
+	) {
+		let grid_stroke = |width: f32, style: GridLineStyle| -> Stroke {
+			let mut s = Stroke {
+				style: Style::Solid(Color {
+					a: 0.2,
+					..self.settings.decoration_color
+				}),
+				width,
+				..Default::default()
+			};
+			match style {
+				GridLineStyle::Solid => {}
+				GridLineStyle::Dashed => s.line_dash = canvas::LineDash { segments: &[10.0, 5.0], offset: 0 },
+				GridLineStyle::Dotted => s.line_dash = canvas::LineDash { segments: &[2.0, 2.0], offset: 0 },
+			}
+			s
+		};
+		let draw_line = |frame: &mut Frame, p1: Point, p2: Point, stroke: Stroke| {
+			let path = Path::new(|builder| {
+				builder.move_to(p1);
+				builder.line_to(p2);
+			});
+			frame.stroke(&path, stroke);
+		};
+		let (first_cat_center, band_width) = transform.categorical(0, y_range.1);
+		let left_edge = first_cat_center.x - (band_width / 2.0);
+		let (last_cat_center, _) = transform.categorical(categories.len() - 1, y_range.0);
+		let right_edge = last_cat_center.x + (band_width / 2.0);
+		if self.settings.show_y_minor_grid && self.settings.y_minor_ticks > 0 {
+			let stroke = grid_stroke(self.settings.y_minor_grid_width, self.settings.y_minor_grid_style);
+			for i in 0..self.settings.y_ticks {
+				for j in 1..=self.settings.y_minor_ticks {
+					let t = (i as f64 + j as f64 / (self.settings.y_minor_ticks + 1) as f64) / self.settings.y_ticks as f64;
+					if t > 1.0 { continue; }
+					let data_y = y_range.0 + (y_range.1 - y_range.0) * t;
+					let p1 = Point::new(left_edge, transform.categorical(0, data_y).0.y);
+					let p2 = Point::new(right_edge, p1.y);
+					draw_line(frame, p1, p2, stroke);
+				}
+			}
+		}
+		if self.settings.show_y_major_grid {
+			let stroke = grid_stroke(self.settings.y_major_grid_width, self.settings.y_major_grid_style);
+			for i in 0..=self.settings.y_ticks {
+				let t = i as f64 / self.settings.y_ticks as f64;
+				let data_y = y_range.0 + (y_range.1 - y_range.0) * t;
+				let p1 = Point::new(left_edge, transform.categorical(0, data_y).0.y);
+				let p2 = Point::new(right_edge, p1.y);
+				draw_line(frame, p1, p2, stroke);
+			}
+		}
 	}
 
 	fn draw_categorical_axes(
@@ -588,12 +798,12 @@ impl<'a> PlotWidget<'a> {
 			width: 2.0,
 			..Default::default()
 		};
+		let (first_cat_center, band_width) = transform.categorical(0, y_range.1);
+		let left_edge = first_cat_center.x - (band_width / 2.0);
+		let (last_cat_center, _) = transform.categorical(categories.len() - 1, y_range.0);
+		let right_edge = last_cat_center.x + (band_width / 2.0);
 		let axes_path = Path::new(|builder| {
-			let (first_cat_center, band_width) = transform.categorical(0, y_range.1);
-			let left_edge = first_cat_center.x - (band_width / 2.0);
 			let top_y = first_cat_center.y;
-			let (last_cat_center, _) = transform.categorical(categories.len() - 1, y_range.0);
-			let right_edge = last_cat_center.x + (band_width / 2.0);
 			let bottom_y = last_cat_center.y;
 			builder.move_to(Point::new(left_edge, top_y));
 			builder.line_to(Point::new(left_edge, bottom_y));
@@ -647,6 +857,64 @@ impl<'a> PlotWidget<'a> {
 		}
 	}
 
+	fn draw_categorical_y_grid(
+		&self,
+		frame: &mut Frame,
+		_area: Rectangle,
+		transform: &CoordinateTransformer,
+		categories: &[String],
+		x_range: (f64, f64),
+	) {
+		let grid_stroke = |width: f32, style: GridLineStyle| -> Stroke {
+			let mut s = Stroke {
+				style: Style::Solid(Color {
+					a: 0.2,
+					..self.settings.decoration_color
+				}),
+				width,
+				..Default::default()
+			};
+			match style {
+				GridLineStyle::Solid => {}
+				GridLineStyle::Dashed => s.line_dash = canvas::LineDash { segments: &[10.0, 5.0], offset: 0 },
+				GridLineStyle::Dotted => s.line_dash = canvas::LineDash { segments: &[2.0, 2.0], offset: 0 },
+			}
+			s
+		};
+		let draw_line = |frame: &mut Frame, p1: Point, p2: Point, stroke: Stroke| {
+			let path = Path::new(|builder| {
+				builder.move_to(p1);
+				builder.line_to(p2);
+			});
+			frame.stroke(&path, stroke);
+		};
+		let (first_cat_center, band_height) = transform.categorical(0, x_range.0);
+		let bottom_edge = first_cat_center.y + (band_height / 2.0);
+		let (last_cat_center, _) = transform.categorical(categories.len() - 1, x_range.1);
+		let top_edge = last_cat_center.y - (band_height / 2.0);
+		if self.settings.show_x_minor_grid && self.settings.x_minor_ticks > 0 {
+			let stroke = grid_stroke(self.settings.x_minor_grid_width, self.settings.x_minor_grid_style);
+			for i in 0..self.settings.x_ticks {
+				for j in 1..=self.settings.x_minor_ticks {
+					let t = (i as f64 + j as f64 / (self.settings.x_minor_ticks + 1) as f64) / self.settings.x_ticks as f64;
+					if t > 1.0 { continue; }
+					let data_x = x_range.0 + (x_range.1 - x_range.0) * t;
+					let x = transform.categorical(0, data_x).0.x;
+					draw_line(frame, Point::new(x, top_edge), Point::new(x, bottom_edge), stroke);
+				}
+			}
+		}
+		if self.settings.show_x_major_grid {
+			let stroke = grid_stroke(self.settings.x_major_grid_width, self.settings.x_major_grid_style);
+			for i in 0..=self.settings.x_ticks {
+				let t = i as f64 / self.settings.x_ticks as f64;
+				let data_x = x_range.0 + (x_range.1 - x_range.0) * t;
+				let x = transform.categorical(0, data_x).0.x;
+				draw_line(frame, Point::new(x, top_edge), Point::new(x, bottom_edge), stroke);
+			}
+		}
+	}
+
 	fn draw_categorical_y_axes(
 		&self,
 		frame: &mut Frame,
@@ -665,12 +933,12 @@ impl<'a> PlotWidget<'a> {
 			width: 2.0,
 			..Default::default()
 		};
+		let (first_cat_center, band_height) = transform.categorical(0, x_range.0);
+		let bottom_edge = first_cat_center.y + (band_height / 2.0);
+		let (last_cat_center, _) = transform.categorical(categories.len() - 1, x_range.1);
+		let top_edge = last_cat_center.y - (band_height / 2.0);
 		let axes_path = Path::new(|builder| {
-			let (first_cat_center, band_height) = transform.categorical(0, x_range.0);
-			let bottom_edge = first_cat_center.y + (band_height / 2.0);
 			let left_x = first_cat_center.x;
-			let (last_cat_center, _) = transform.categorical(categories.len() - 1, x_range.1);
-			let top_edge = last_cat_center.y - (band_height / 2.0);
 			let right_x = last_cat_center.x;
 			builder.move_to(Point::new(left_x, top_edge));
 			builder.line_to(Point::new(left_x, bottom_edge));
@@ -821,7 +1089,6 @@ impl<'a> PlotWidget<'a> {
 			width: 1.5,
 			..Default::default()
 		};
-		let num_ticks = 5;
 		for (i, dim) in dimensions.iter().enumerate() {
 			let range = ranges[i];
 			let (top_px, _) = transform.categorical(i, range.1);
@@ -832,8 +1099,8 @@ impl<'a> PlotWidget<'a> {
 			});
 			frame.stroke(&axis_path, halo_stroke);
 			frame.stroke(&axis_path, axis_stroke);
-			for j in 0..=num_ticks {
-				let t = j as f64 / num_ticks as f64;
+			for j in 0..=self.settings.y_ticks {
+				let t = j as f64 / self.settings.y_ticks as f64;
 				let data_y = range.0 + (range.1 - range.0) * t;
 				let (p, _) = transform.categorical(i, data_y);
 				let tick_path = Path::new(|builder| {
@@ -850,6 +1117,21 @@ impl<'a> PlotWidget<'a> {
 					align_y: alignment::Vertical::Center,
 					..Default::default()
 				});
+			}
+			if self.settings.show_y_minor_ticks && self.settings.y_minor_ticks > 0 {
+				for j in 0..self.settings.y_ticks {
+					for k in 1..=self.settings.y_minor_ticks {
+						let t = (j as f64 + k as f64 / (self.settings.y_minor_ticks + 1) as f64) / self.settings.y_ticks as f64;
+						if t > 1.0 { continue; }
+						let data_y = range.0 + (range.1 - range.0) * t;
+						let (p, _) = transform.categorical(i, data_y);
+						let tick_path = Path::new(|builder| {
+							builder.move_to(p);
+							builder.line_to(Point::new(p.x - 3.0, p.y));
+						});
+						frame.stroke(&tick_path, tick_stroke);
+					}
+				}
 			}
 			frame.fill_text(Text {
 				content: dim.clone(),

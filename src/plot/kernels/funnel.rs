@@ -212,8 +212,8 @@ pub fn prepare_funnel_data(df: &DataFrame, stage_col: &str, val_col: &str) -> Fu
 		stages,
 		values,
 		total_max,
-		x_label: stage_col.to_string(),
-		y_label: val_col.to_string(),
+		x_label: val_col.to_string(),
+		y_label: stage_col.to_string(),
 	}
 }
 
